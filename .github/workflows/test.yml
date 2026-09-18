@@ -28,6 +28,12 @@ jobs:
       - name: Pre-pull Docker Sandbox Image
         run: docker pull python:3.10-alpine
 
+      - name: Initialize Database
+        working-directory: ./backend
+        env:
+          PYTHONPATH: src
+        run: python init_db.py
+
       - name: Run all tests
         working-directory: ./backend
         env:
