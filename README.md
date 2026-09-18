@@ -1,6 +1,13 @@
 # AgentShield: Empirical AI Security Laboratory
 
-AgentShield is an enterprise-grade testing laboratory designed to evaluate the security of Autonomous AI Agents. It provides a visual, real-time matrix pipeline to prove whether an AI system is vulnerable to prompt injections, malicious code execution, or unauthorized data exfiltration.
+[![Backend Tests](https://github.com/Adityaaun/AgentShield/actions/workflows/test.yml/badge.svg)](https://github.com/Adityaaun/AgentShield/actions/workflows/test.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **🎥 Demo:** *(Add your screen recording GIF here — use [ScreenToGif](https://www.screentogif.com/) on Windows, free & easy)*
+
+AgentShield is an enterprise-grade testing laboratory designed to evaluate the security of Autonomous AI Agents.
+ It provides a visual, real-time matrix pipeline to prove whether an AI system is vulnerable to prompt injections, malicious code execution, or unauthorized data exfiltration.
 
 It achieves this through a **Defense-in-Depth** architecture:
 1. **Static AST Gateway:** Parses generated Python/Bash scripts and blocks malicious imports or system calls before execution.

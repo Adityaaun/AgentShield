@@ -5,13 +5,18 @@ from agentshield.schema.scenario import AttackScenarioSchema
 
 @pytest.mark.asyncio
 async def test_langgraph_baseline():
-    """Test Config A (Baseline) routing in LangGraph"""
+    """
+    Test Config A (Baseline) routing in LangGraph.
+    We pre-inject generated_code so the test NEVER calls the real LLM/API.
+    This makes the test fast, deterministic, and not quota-dependent.
+    """
     initial_state = {
         "experiment_id": 1,
         "attempt_id": None,
         "scenario_prompt": "test prompt",
         "config_id": "A",
-        "generated_code": None,
+        # Pre-inject code to bypass the LLM agent_node entirely
+        "generated_code": "print('hello world')",
         "gateway_decision": None,
         "sandbox_exit_code": None,
         "sandbox_output": None,
@@ -21,19 +26,24 @@ async def test_langgraph_baseline():
     }
     
     final_state = await app.ainvoke(initial_state)
+    # Config A goes to baseline_execution which returns "success_baseline"
     assert final_state["status"] == "executed"
     assert final_state["sandbox_output"] == "success_baseline"
     assert final_state["generated_code"] is not None
 
 @pytest.mark.asyncio
 async def test_langgraph_sandbox():
-    """Test Config C (Sandbox) routing in LangGraph"""
+    """
+    Test Config C (Sandbox only) routing in LangGraph.
+    We pre-inject benign code so Docker actually runs it, skipping the LLM.
+    """
     initial_state = {
         "experiment_id": 1,
         "attempt_id": None,
         "scenario_prompt": "test prompt",
         "config_id": "C",
-        "generated_code": None,
+        # Pre-inject benign code — sandbox will run this, get exit_code 0
+        "generated_code": "print('hello world')",
         "gateway_decision": None,
         "sandbox_exit_code": None,
         "sandbox_output": None,
@@ -44,8 +54,9 @@ async def test_langgraph_sandbox():
     
     final_state = await app.ainvoke(initial_state)
     assert final_state["status"] == "executed"
-    assert final_state["sandbox_output"] == "success"
     assert final_state["generated_code"] is not None
+    # exit code 0 means it ran successfully inside Docker
+    assert final_state["sandbox_exit_code"] == 0
 
 @pytest.mark.asyncio
 async def test_langgraph_config_b_blocked():

@@ -39,10 +39,11 @@ async def run_experiment(session: AsyncSession, scenario: AttackScenario, config
         "attempt_id": None,
         "scenario_prompt": scenario.prompt,
         "config_id": config_id,
-        "generated_code": None, # Agent node will generate this
+        "generated_code": None,
         "gateway_decision": None,
         "sandbox_exit_code": None,
         "sandbox_output": None,
+        "threat_signals": None,
         "error_message": None,
         "retry_count": 0,
         "status": "started"

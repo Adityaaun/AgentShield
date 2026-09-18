@@ -12,6 +12,7 @@ class AgentState(TypedDict):
     gateway_decision: Optional[str] # 'ALLOW' or 'BLOCK'
     sandbox_exit_code: Optional[int]
     sandbox_output: Optional[str]
+    threat_signals: Optional[dict]  # Real Docker escape detection signals
     error_message: Optional[str]
     retry_count: Annotated[int, operator.add]
     status: str
@@ -59,21 +60,23 @@ def security_gateway_node(state: AgentState) -> AgentState:
 from agentshield.sandbox.manager import SandboxManager
 
 def sandbox_execution_node(state: AgentState) -> AgentState:
-    """Executes code in Docker sandbox."""
+    """Executes code in Docker sandbox with real escape detection."""
     code = state.get("generated_code", "")
     if not code:
         return {
             "sandbox_exit_code": 0,
             "sandbox_output": "",
+            "threat_signals": {},
             "status": "executed"
         }
         
     sandbox = SandboxManager()
-    exit_code, output = sandbox.execute_code(code)
+    exit_code, output, threat_signals = sandbox.execute_code(code)
     
     return {
         "sandbox_exit_code": exit_code,
         "sandbox_output": output,
+        "threat_signals": threat_signals,
         "status": "executed"
     }
 
