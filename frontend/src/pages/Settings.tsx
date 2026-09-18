@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Key, Info, Trash2, Save, CheckCircle2, ExternalLink } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -16,13 +17,23 @@ export default function Settings() {
     setOpenaiKey(localStorage.getItem(STORAGE_KEYS.OPENAI_API_KEY) || '');
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (googleKey) localStorage.setItem(STORAGE_KEYS.GOOGLE_API_KEY, googleKey);
     else localStorage.removeItem(STORAGE_KEYS.GOOGLE_API_KEY);
     if (openaiKey) localStorage.setItem(STORAGE_KEYS.OPENAI_API_KEY, openaiKey);
     else localStorage.removeItem(STORAGE_KEYS.OPENAI_API_KEY);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    
+    try {
+      await axios.post('/api/settings/keys', {
+        google_api_key: googleKey || null,
+        openai_api_key: openaiKey || null
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error("Failed to save keys to backend", err);
+      alert("Failed to save keys to backend. Check console.");
+    }
   };
 
   const handleClearData = () => {
@@ -56,8 +67,7 @@ export default function Settings() {
           <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">API Keys</h2>
         </div>
         <p className="text-xs text-slate-500">
-          Keys are stored only in your browser's localStorage and are never sent to any external server.
-          They override the backend <code className="text-blue-400 bg-blue-900/20 px-1 rounded">.env</code> file values.
+          Keys are stored in your browser's localStorage and securely updated in the backend <code className="text-blue-400 bg-blue-900/20 px-1 rounded">.env</code> file for live evaluations.
         </p>
 
         {/* Google Gemini */}

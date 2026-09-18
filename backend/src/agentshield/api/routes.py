@@ -176,6 +176,8 @@ async def get_experiment(exp_id: int, db: AsyncSession = Depends(get_db)):
     }
 
 from pydantic import BaseModel
+from typing import Optional
+import os
 
 class ScenarioCreate(BaseModel):
     category: str
@@ -267,3 +269,25 @@ async def import_nvd_scenarios(db: AsyncSession = Depends(get_db)):
     
     await db.commit()
     return {"imported": len(created_scenarios), "scenarios": created_scenarios}
+
+class APIKeysUpdate(BaseModel):
+    google_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+
+@router.post("/settings/keys")
+async def update_api_keys(keys: APIKeysUpdate):
+    import dotenv
+    env_file = dotenv.find_dotenv()
+    if not env_file:
+        env_file = os.path.join(os.getcwd(), ".env")
+
+    # Update os.environ dynamically for the running process
+    if keys.google_api_key:
+        os.environ["GOOGLE_API_KEY"] = keys.google_api_key
+        dotenv.set_key(env_file, "GOOGLE_API_KEY", keys.google_api_key)
+    
+    if keys.openai_api_key:
+        os.environ["OPENAI_API_KEY"] = keys.openai_api_key
+        dotenv.set_key(env_file, "OPENAI_API_KEY", keys.openai_api_key)
+
+    return {"status": "success"}
