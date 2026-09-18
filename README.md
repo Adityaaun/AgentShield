@@ -13,7 +13,18 @@ It achieves this through a **Defense-in-Depth** architecture:
 1. **Static AST Gateway:** Parses generated Python/Bash scripts and blocks malicious imports or system calls before execution.
 2. **Docker Sandbox:** Executes the AI's code in a heavily restricted, isolated container to contain zero-day behaviors.
 
-## Features
+## Screenshots
+
+![Overview Dashboard](docs/assets/overview.png)
+*The main overview dashboard where you can launch the matrix pipeline.*
+
+![Live Operations](docs/assets/live_operations.png)
+*Live terminal stream watching the LangGraph agent and sandbox defenses in real-time.*
+
+![Security Scorecard](docs/assets/scorecard.png)
+*Detailed empirical scorecard breaking down defense mechanisms and generated attack payloads.*
+
+## 🌟 Key Features
 
 - **Premium Operations Dashboard:** A stunning, dark-mode React interface inspired by modern security operations centers.
 - **Matrix Evaluation Pipeline:** Runs a full cartesian product of test scenarios across 4 different defense configurations (Baseline, Gateway, Sandbox, Full Defense) in real-time.
