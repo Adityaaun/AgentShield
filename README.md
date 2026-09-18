@@ -24,6 +24,15 @@ It achieves this through a **Defense-in-Depth** architecture:
 ![Security Scorecard](docs/assets/scorecard.png)
 *Detailed empirical scorecard breaking down defense mechanisms and generated attack payloads.*
 
+![A/B Comparison Mode](docs/assets/compare_scorecard.png)
+*Side-by-side A/B comparison to track defense improvements between evaluations.*
+
+![Scenarios Management](docs/assets/scenarios.png)
+*Threat scenario management with CVE imports.*
+
+![Evaluation History](docs/assets/history.png)
+*Pipeline execution history and timeline tracking.*
+
 ## 🌟 Key Features
 
 - **Premium Operations Dashboard:** A stunning, dark-mode React interface inspired by modern security operations centers.
