@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Terminal, Activity, CheckCircle2, ShieldAlert, Cpu, Network, FileSearch, X, Shield } from 'lucide-react';
+import { Terminal, Activity, CheckCircle2, ShieldAlert, Cpu, Network, Box, Lock, TerminalSquare, X, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface LiveEvaluationProps {
@@ -32,11 +32,11 @@ export default function LiveEvaluation({ evalId, onClose }: LiveEvaluationProps)
         const msg = data.message;
         setLogs(prev => [...prev, { time, msg }]);
         
-        // Very basic heuristic to animate the pipeline based on log messages
-        if (msg.includes('Agent started')) setActiveStage(1);
-        if (msg.includes('Gateway decision')) setActiveStage(2);
-        if (msg.includes('Sandbox executed')) setActiveStage(3);
-        if (msg.includes('Evidence')) setActiveStage(4);
+        // Track overall matrix progress instead of jumping around for each run
+        if (msg.includes('Starting Experiment: Config A')) setActiveStage(1);
+        if (msg.includes('Starting Experiment: Config B')) setActiveStage(2);
+        if (msg.includes('Starting Experiment: Config C')) setActiveStage(3);
+        if (msg.includes('Starting Experiment: Config D')) setActiveStage(4);
       }
     };
 
@@ -50,11 +50,11 @@ export default function LiveEvaluation({ evalId, onClose }: LiveEvaluationProps)
   }, [logs]);
 
   const stages = [
-    { id: 1, name: 'Agent', icon: Cpu },
-    { id: 2, name: 'Gateway', icon: ShieldAlert },
-    { id: 3, name: 'Sandbox', icon: Network },
-    { id: 4, name: 'Evidence', icon: FileSearch },
-    { id: 5, name: 'Evaluator', icon: CheckCircle2 }
+    { id: 1, name: 'Config A (Baseline)', icon: TerminalSquare },
+    { id: 2, name: 'Config B (Gateway)', icon: ShieldAlert },
+    { id: 3, name: 'Config C (Sandbox)', icon: Box },
+    { id: 4, name: 'Config D (Full)', icon: Lock },
+    { id: 5, name: 'Complete', icon: CheckCircle2 }
   ];
 
   return (
