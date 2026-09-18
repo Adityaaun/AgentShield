@@ -282,11 +282,11 @@ async def update_api_keys(keys: APIKeysUpdate):
         env_file = os.path.join(os.getcwd(), ".env")
 
     # Update os.environ dynamically for the running process
-    if keys.google_api_key:
+    if keys.google_api_key is not None:
         os.environ["GOOGLE_API_KEY"] = keys.google_api_key
         dotenv.set_key(env_file, "GOOGLE_API_KEY", keys.google_api_key)
     
-    if keys.openai_api_key:
+    if keys.openai_api_key is not None:
         os.environ["OPENAI_API_KEY"] = keys.openai_api_key
         dotenv.set_key(env_file, "OPENAI_API_KEY", keys.openai_api_key)
 

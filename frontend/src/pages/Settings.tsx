@@ -36,12 +36,21 @@ export default function Settings() {
     }
   };
 
-  const handleClearData = () => {
-    if (confirm('Are you sure? This will clear all saved API keys from this browser.')) {
+  const handleClearData = async () => {
+    if (confirm('Are you sure? This will clear all saved API keys from this browser and the backend.')) {
       localStorage.removeItem(STORAGE_KEYS.GOOGLE_API_KEY);
       localStorage.removeItem(STORAGE_KEYS.OPENAI_API_KEY);
       setGoogleKey('');
       setOpenaiKey('');
+      
+      try {
+        await axios.post('/api/settings/keys', {
+          google_api_key: "",
+          openai_api_key: ""
+        });
+      } catch (err) {
+        console.error("Failed to clear keys from backend", err);
+      }
     }
   };
 
@@ -162,7 +171,7 @@ export default function Settings() {
           <Trash2 className="w-4 h-4" /> Danger Zone
         </h2>
         <p className="text-slate-500 text-sm mb-4">
-          This will clear all saved API keys from your browser. Your database and evaluation history will remain intact.
+          This will clear all saved API keys from your browser and the backend <code className="text-red-400 bg-red-900/20 px-1 rounded">.env</code> file. Your database and evaluation history will remain intact.
         </p>
         <button
           onClick={handleClearData}
