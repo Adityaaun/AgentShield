@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Key, Github, Info, Trash2, Save, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Key, Info, Trash2, Save, CheckCircle2, ExternalLink } from 'lucide-react';
 
 const STORAGE_KEYS = {
   GOOGLE_API_KEY: 'agentshield_google_api_key',
@@ -140,7 +140,7 @@ export default function Settings() {
           rel="noreferrer"
           className="flex items-center justify-center gap-2 w-full bg-obsidian-800 hover:bg-obsidian-700 border border-obsidian-600 rounded-xl p-3 text-slate-300 hover:text-white transition-all font-medium text-sm"
         >
-          <Github className="w-4 h-4" />
+          <ExternalLink className="w-4 h-4" />
           View on GitHub
           <ExternalLink className="w-3 h-3" />
         </a>
