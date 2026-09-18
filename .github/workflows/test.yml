@@ -25,18 +25,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run unit tests (skip Docker sandbox tests in CI)
+      - name: Pre-pull Docker Sandbox Image
+        run: docker pull python:3.10-alpine
+
+      - name: Run all tests
         working-directory: ./backend
         env:
           PYTHONPATH: src
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          pytest tests/ -v --tb=short --ignore=tests/test_sandbox.py
-
-      - name: Run sandbox tests (requires Docker)
-        working-directory: ./backend
-        env:
-          PYTHONPATH: src
-        run: |
-          docker pull python:3.10-alpine
-          pytest tests/test_sandbox.py -v --tb=short
+          pytest tests/ -v --tb=short
