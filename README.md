@@ -33,6 +33,9 @@ It achieves this through a **Defense-in-Depth** architecture:
 ![Evaluation History](docs/assets/history.png)
 *Pipeline execution history and timeline tracking.*
 
+![Settings & Configuration](docs/assets/settings.png)
+*Local API key management and configuration overrides.*
+
 ## 🌟 Key Features
 
 - **Premium Operations Dashboard:** A stunning, dark-mode React interface inspired by modern security operations centers.
