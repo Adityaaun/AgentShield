@@ -1,0 +1,26 @@
+# Virtual Environments
+backend/venv/
+backend/env/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Node Modules
+frontend/node_modules/
+node_modules/
+
+# Environment Variables
+.env
+backend/.env
+frontend/.env
+*.env
+
+# SQLite Database
+*.db
+backend/agentshield.db
+agentshield.db
+
+# OS Files
+.DS_Store
+Thumbs.db
