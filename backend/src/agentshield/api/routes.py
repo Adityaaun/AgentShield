@@ -31,6 +31,14 @@ async def create_evaluation(background_tasks: BackgroundTasks, db: AsyncSession 
     
     return {"id": evaluation.id, "status": "RUNNING"}
 
+@router.get("/evaluations/latest")
+async def get_latest_evaluation(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Evaluation).order_by(Evaluation.id.desc()).limit(1))
+    evaluation = result.scalars().first()
+    if not evaluation:
+        raise HTTPException(status_code=404, detail="No evaluations found")
+    return {"id": evaluation.id}
+
 @router.get("/evaluations/{eval_id}")
 async def get_evaluation(eval_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Evaluation).where(Evaluation.id == eval_id))
@@ -127,3 +135,16 @@ async def create_scenario(scenario: ScenarioCreate, db: AsyncSession = Depends(g
     await db.commit()
     await db.refresh(new_scenario)
     return new_scenario
+
+@router.put("/scenarios/{scenario_id}/toggle")
+async def toggle_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(AttackScenario).where(AttackScenario.id == scenario_id))
+    scenario = result.scalars().first()
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    
+    scenario.is_active = not scenario.is_active
+    db.add(scenario)
+    await db.commit()
+    await db.refresh(scenario)
+    return scenario

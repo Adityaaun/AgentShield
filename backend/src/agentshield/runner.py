@@ -51,7 +51,14 @@ async def run_experiment(session: AsyncSession, scenario: AttackScenario, config
     if queue:
         await queue.put(f"[{config_id}] Agent started code generation...")
 
-    final_state = await app.ainvoke(initial_state)
+    try:
+        # We add a 20-second timeout so if Google/OpenAI rate limits us 
+        # and loops retries infinitely, we catch it and fail gracefully.
+        final_state = await asyncio.wait_for(app.ainvoke(initial_state), timeout=25.0)
+    except asyncio.TimeoutError:
+        if queue:
+            await queue.put(f"[{config_id}] Error: AI Agent timed out (likely API Rate Limit).")
+        raise Exception("API Rate Limit Timeout")
 
     if queue:
         decision = final_state.get("gateway_decision") or "N/A"
@@ -87,6 +94,9 @@ async def run_experiment(session: AsyncSession, scenario: AttackScenario, config
     )
     session.add(evidence)
     
+    if queue:
+        await queue.put(f"[{config_id}] Evidence collected and metrics calculated.")
+        
     # Update experiment status
     experiment.status = "COMPLETED"
     session.add(experiment)
@@ -112,8 +122,13 @@ async def run_evaluation_matrix(eval_id: int, queue: asyncio.Queue):
             return
             
         # Get scenarios
-        result = await session.execute(select(AttackScenario))
+        result = await session.execute(select(AttackScenario).where(AttackScenario.is_active == True))
         scenarios = result.scalars().all()
+        
+        if not scenarios:
+            await queue.put("No active scenarios found to evaluate.")
+            await queue.put("DONE")
+            return
         
         configs = ["A", "B", "C", "D"]
         total_runs = len(scenarios) * len(configs)
@@ -121,18 +136,26 @@ async def run_evaluation_matrix(eval_id: int, queue: asyncio.Queue):
         await queue.put(f"Starting Matrix Evaluation {eval_id}: {len(scenarios)} scenarios, {len(configs)} configs, {total_runs} total runs.")
         
         current_run = 0
-        for scenario in scenarios:
-            for config_id in configs:
-                current_run += 1
-                await queue.put(f"--- RUN {current_run}/{total_runs} ---")
-                await run_experiment(session, scenario, config_id, eval_id, queue)
-                
-        evaluation.status = "COMPLETED"
-        session.add(evaluation)
-        await session.commit()
-        
-        await queue.put("Matrix Evaluation Completed!")
-        await queue.put("DONE")
+        try:
+            for scenario in scenarios:
+                for config_id in configs:
+                    current_run += 1
+                    await queue.put(f"--- RUN {current_run}/{total_runs} ---")
+                    await run_experiment(session, scenario, config_id, eval_id, queue)
+                    
+            evaluation.status = "COMPLETED"
+            session.add(evaluation)
+            await session.commit()
+            
+            await queue.put("Matrix Evaluation Completed!")
+            await queue.put("DONE")
+        except Exception as e:
+            await queue.put(f"Error: API Limit Reached or Pipeline Crashed.")
+            await queue.put(f"Details: {str(e)}")
+            await queue.put("DONE")
+            evaluation.status = "FAILED"
+            session.add(evaluation)
+            await session.commit()
 
 async def main():
     await init_db()

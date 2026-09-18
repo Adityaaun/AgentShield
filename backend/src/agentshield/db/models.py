@@ -17,6 +17,7 @@ class AttackScenario(Base):
     category: Mapped[str] = mapped_column(String(100))
     prompt: Mapped[str] = mapped_column(String)
     success_condition: Mapped[str] = mapped_column(String)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 class Experiment(Base):
     __tablename__ = "experiments"
