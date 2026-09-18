@@ -153,6 +153,8 @@ async def run_evaluation_matrix(eval_id: int, queue: asyncio.Queue):
         except Exception as e:
             await queue.put(f"Error: API Limit Reached or Pipeline Crashed.")
             await queue.put(f"Details: {str(e)}")
+            if "API Rate Limit" in str(e):
+                await queue.put("💡 TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
             await queue.put("DONE")
             evaluation.status = "FAILED"
             session.add(evaluation)
