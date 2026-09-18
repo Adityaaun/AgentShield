@@ -24,20 +24,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install langchain-google-genai aiosqlite anyio
 
-      - name: Verify Docker is available
-        run: docker --version && docker ps
-
-      - name: Pull sandbox image (so tests don't time out pulling it)
-        run: docker pull python:3.10-alpine
-
-      - name: Run tests
+      - name: Run unit tests (skip Docker sandbox tests in CI)
         working-directory: ./backend
         env:
           PYTHONPATH: src
-          # GOOGLE_API_KEY is only needed for LangGraph agent tests
-          # All our tests pre-inject generated_code so they skip the LLM
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short --ignore=tests/test_sandbox.py
+
+      - name: Run sandbox tests (requires Docker)
+        working-directory: ./backend
+        env:
+          PYTHONPATH: src
+        run: |
+          docker pull python:3.10-alpine
+          pytest tests/test_sandbox.py -v --tb=short
