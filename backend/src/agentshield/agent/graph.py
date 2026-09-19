@@ -68,7 +68,9 @@ def baseline_execution_node(state: AgentState) -> AgentState:
         drop_capabilities=False,
         read_only_fs=False,
         tmpfs_enabled=False,
-        memory_limit='512m'
+        memory_limit='512m',
+        run_as_nobody=False,
+        no_new_privileges=False
     )
     sandbox = SandboxManager()
     exit_code, output, threat_signals = sandbox.execute_code(code, security_config=config)

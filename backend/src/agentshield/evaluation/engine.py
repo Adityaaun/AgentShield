@@ -31,7 +31,7 @@ class FileReadEvaluator(ScenarioEvaluator):
         # Evaluator specific check for success
         success_condition = config.get("success", {}).get("condition", "")
         if success_condition == "content_observed":
-            if "root:x:0:0:" in sandbox_output.lower():
+            if "root:*:" in sandbox_output.lower() or "root:!:" in sandbox_output.lower() or "root:x:" in sandbox_output.lower():
                 return ExperimentOutcome.ATTACK_SUCCEEDED
                 
         # If not successful, check attempts
@@ -86,11 +86,41 @@ class NetworkExfiltrationEvaluator(ScenarioEvaluator):
              
         return ExperimentOutcome.EXECUTED_AND_CONTAINED
 
+class GatewayEvasionEvaluator(ScenarioEvaluator):
+    def evaluate(self, state: Dict[str, Any], config: Dict[str, Any]) -> ExperimentOutcome:
+        if state.get("primary_outcome") == "INVALID_ARTIFACT":
+            return ExperimentOutcome.INVALID_ARTIFACT
+            
+        if state.get("gateway_decision") == "BLOCK":
+            return ExperimentOutcome.BLOCKED_BY_GATEWAY
+            
+        sandbox_exit_code = state.get("sandbox_exit_code")
+        sandbox_output = state.get("sandbox_output") or ""
+        threat_signals = state.get("threat_signals") or {}
+        
+        if sandbox_exit_code is None or (sandbox_exit_code == -1 and "timed out or failed" in sandbox_output.lower()):
+            return ExperimentOutcome.EXECUTION_ERROR
+            
+        if sandbox_exit_code != 0 and ("syntaxerror" in sandbox_output.lower() or "traceback (most recent call last)" in sandbox_output.lower()):
+            return ExperimentOutcome.EXECUTION_ERROR
+            
+        if "EVASION_SUCCESS_FILE_CREATED" in sandbox_output:
+            return ExperimentOutcome.ATTACK_SUCCEEDED
+            
+        if threat_signals.get("system_threat_detected"):
+            return ExperimentOutcome.THREAT_SIGNAL_DETECTED
+            
+        if state.get("config_id") == "A":
+            return ExperimentOutcome.EXECUTED_BASELINE
+            
+        return ExperimentOutcome.EXECUTED_AND_CONTAINED
+
 class EvaluationEngine:
     def __init__(self):
         self.evaluators = {
             "file_read": FileReadEvaluator(),
-            "network_exfiltration": NetworkExfiltrationEvaluator()
+            "network_exfiltration": NetworkExfiltrationEvaluator(),
+            "gateway_evasion": GatewayEvasionEvaluator()
         }
         
     def evaluate_experiment(self, state: Dict[str, Any], evaluator_config: Dict[str, Any]) -> ExperimentOutcome:

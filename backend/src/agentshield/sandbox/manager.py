@@ -133,7 +133,7 @@ class SandboxManager:
         try:
             container = self.client.api.create_container(
                 image=self.image,
-                command=["python", "/workspace/script.py"],
+                command=["timeout", "-k", str(timeout + 1), str(timeout), "python", "/workspace/script.py"],
                 environment=environment,
                 host_config=host_config,
                 working_dir="/workspace",
@@ -145,7 +145,8 @@ class SandboxManager:
             
             # Wait for container to finish or timeout
             try:
-                result = self.client.api.wait(container=container_id, timeout=timeout)
+                # Add buffer to api.wait so the internal 'timeout' command triggers first
+                result = self.client.api.wait(container=container_id, timeout=timeout + 3)
                 exit_code = result.get('StatusCode', -1)
             except Exception as e:
                 self.client.api.kill(container=container_id)
