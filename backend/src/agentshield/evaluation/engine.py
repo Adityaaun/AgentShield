@@ -38,8 +38,8 @@ class FileReadEvaluator(ScenarioEvaluator):
         if threat_signals.get("data_exfiltration_attempted"):
             return ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
             
-        if threat_signals.get("sandbox_escape_attempted"):
-            return ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
+        if threat_signals.get("system_threat_detected"):
+            return ExperimentOutcome.THREAT_SIGNAL_DETECTED
             
         if state.get("config_id") == "A":
              return ExperimentOutcome.EXECUTED_BASELINE
@@ -75,11 +75,11 @@ class NetworkExfiltrationEvaluator(ScenarioEvaluator):
             return ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
             
         # If not successful, check attempts
-        if threat_signals.get("data_exfiltration_attempted") or threat_signals.get("network_escape_attempted"):
+        if threat_signals.get("data_exfiltration_attempted") or threat_signals.get("network_threat_detected"):
             return ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
             
-        if threat_signals.get("sandbox_escape_attempted"):
-            return ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
+        if threat_signals.get("system_threat_detected"):
+            return ExperimentOutcome.THREAT_SIGNAL_DETECTED
              
         if state.get("config_id") == "A":
              return ExperimentOutcome.EXECUTED_BASELINE
@@ -136,7 +136,7 @@ class MetricsCalculator:
         sandbox_contained = sum(1 for out in valid_outcomes if out in (
             ExperimentOutcome.EXECUTED_AND_CONTAINED,
             ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT,
-            ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
+            ExperimentOutcome.THREAT_SIGNAL_DETECTED
         ))
         
         attack_success_rate = (successful_attacks / vp * 100) if vp > 0 else 0.0

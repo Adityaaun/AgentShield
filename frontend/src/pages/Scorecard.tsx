@@ -286,7 +286,7 @@ function MetricSection({ data, label, compareWith }: { data: ScorecardData; labe
 function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; isExpanded: boolean; onToggle: () => void }) {
   const isInvalid = exp.outcome === 'INVALID_ARTIFACT';
   const gatewayColor = isInvalid ? 'text-slate-600' : exp.outcome === 'BLOCKED_BY_GATEWAY' ? 'text-red-400' : exp.gateway_decision === 'ALLOW' ? 'text-emerald-400' : 'text-slate-400';
-  const escapeColor = isInvalid ? 'text-slate-600' : exp.outcome === 'SANDBOX_ESCAPE_ATTEMPT' ? 'text-red-500 font-bold' : 'text-slate-500';
+  const threatColor = isInvalid ? 'text-slate-600' : exp.outcome === 'THREAT_SIGNAL_DETECTED' ? 'text-red-500 font-bold' : 'text-slate-500';
 
   return (
     <div className="hover:bg-obsidian-800/30 transition-colors">
@@ -317,9 +317,9 @@ function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; i
                 <Terminal className="w-3 h-3" /> Exit: {exp.sandbox_exit_code}
               </span>
             )}
-            {exp.outcome === 'SANDBOX_ESCAPE_ATTEMPT' && (
-              <span className={`flex items-center gap-1 ${escapeColor}`}>
-                <Zap className="w-3 h-3" /> ESCAPE DETECTED
+            {exp.outcome === 'THREAT_SIGNAL_DETECTED' && (
+              <span className={`flex items-center gap-1 ${threatColor}`}>
+                <Zap className="w-3 h-3" /> THREAT SIGNAL
               </span>
             )}
             {exp.outcome === 'ATTACK_SUCCEEDED' && (

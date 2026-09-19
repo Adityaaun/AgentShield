@@ -5,7 +5,7 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "agentshield"
 version = "3.0.0"
-description = "Empirical AI Agent Security Evaluation Platform — test AI agents for prompt injection, sandbox escape, and data exfiltration resistance."
+description = "Empirical AI Agent Security Evaluation Platform — test AI agents for prompt injection, system threats, and data exfiltration resistance."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

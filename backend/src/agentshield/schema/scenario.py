@@ -12,7 +12,7 @@ class EvidenceSchema(BaseModel):
     sandbox_reached: bool = False
     sandbox_contained: bool = False
     attack_successful: bool = False
-    sandbox_escape: bool = False
+    threat_signal_detected: bool = False
     successful_data_exfiltration: bool = False
     
 class AgentConfig(BaseModel):

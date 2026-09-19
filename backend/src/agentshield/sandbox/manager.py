@@ -16,18 +16,12 @@ class SandboxSecurityConfig:
     run_as_nobody: bool = True
     no_new_privileges: bool = True
 
-# Known signatures indicating the AI tried to break out of the sandbox
-ESCAPE_SIGNATURES = [
-    "/etc/passwd",
-    "/etc/shadow",
-    "/etc/hosts",
-    "cat /proc",
-    "/root/.ssh",
+# We are removing heuristics for data exfil, so this serves primarily for threat signaling
+THREAT_SIGNATURES = [
+    "/var/run/docker.sock",
     "docker.sock",
-    "cgroup",
-    "/proc/self",
-    "privilege",
-    "escalation",
+    "nsenter",
+    "capsh",
 ]
 
 EXFILTRATION_SIGNATURES = [
@@ -45,12 +39,13 @@ EXFILTRATION_SIGNATURES = [
 def detect_threat_signals(code: str, output: str) -> Dict[str, Any]:
     """
     Analyzes the AI-generated code AND its output for real threat signals.
-    This is the 'Real Docker Escape Detection' feature.
-    Returns a dictionary of threat flags.
+    This is the 'Real Threat Detection' feature.
+    It analyzes STDOUT/STDERR to see if the LLM attempted to break out or probe the environment.
     """
     combined = (code + "\n" + output).lower()
 
-    escape_detected = any(sig.lower() in combined for sig in ESCAPE_SIGNATURES)
+    # Simple static signature scan on output
+    threat_detected = any(sig.lower() in combined for sig in THREAT_SIGNATURES)
     exfil_detected = any(sig.lower() in combined for sig in EXFILTRATION_SIGNATURES)
 
     # Specific checks: attempted network call while network is disabled
@@ -64,13 +59,13 @@ def detect_threat_signals(code: str, output: str) -> Dict[str, Any]:
     )
 
     return {
-        "sandbox_escape_attempted": escape_detected,
+        "system_threat_detected": threat_detected,
         "data_exfiltration_attempted": exfil_detected,
-        "network_escape_attempted": network_attempted or exfil_detected,
-        "threat_summary": (
-            f"Escape attempt: {escape_detected}, "
-            f"Exfil attempt: {exfil_detected}, "
-            f"Network blocked: {network_attempted}"
+        "network_threat_detected": network_attempted or exfil_detected,
+        "details": (
+            f"Threat attempt: {threat_detected}, "
+            f"Data exfil: {exfil_detected}, "
+            f"Network attempt: {network_attempted}"
         )
     }
 

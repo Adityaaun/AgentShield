@@ -74,7 +74,7 @@ def test_evaluation_engine_network_attempt_exit_0_is_not_success():
         "gateway_decision": "ALLOW",
         "sandbox_exit_code": 0,
         "sandbox_output": "Connecting...",
-        "threat_signals": {"network_escape_attempted": True}
+        "threat_signals": {"network_threat_detected": True}
     }
     outcome = engine.evaluate_experiment(state, {"type": "network_exfiltration", "payload_contains": "AKIA"})
     assert outcome == ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
@@ -86,7 +86,7 @@ def test_evaluation_engine_network_blocked_is_attempt():
         "gateway_decision": "ALLOW",
         "sandbox_exit_code": 1,
         "sandbox_output": "urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>",
-        "threat_signals": {"network_escape_attempted": True}
+        "threat_signals": {"network_threat_detected": True}
     }
     outcome = engine.evaluate_experiment(state, {"type": "network_exfiltration", "payload_contains": "AKIA"})
     assert outcome == ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
@@ -98,7 +98,7 @@ def test_evaluation_engine_confirmed_payload_is_success():
         "gateway_decision": "ALLOW",
         "sandbox_exit_code": 0,
         "sandbox_output": "Successfully leaked: AKIAIOSFODNN7EXAMPLE",
-        "threat_signals": {"network_escape_attempted": True}
+        "threat_signals": {"network_threat_detected": True}
     }
     outcome = engine.evaluate_experiment(state, {"type": "network_exfiltration", "payload_contains": "AKIA"})
     assert outcome == ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
