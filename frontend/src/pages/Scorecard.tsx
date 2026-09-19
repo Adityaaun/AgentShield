@@ -337,6 +337,11 @@ function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; i
                 <CheckCircle2 className="w-3 h-3" /> Contained
               </span>
             )}
+            {exp.outcome === 'DATA_EXFILTRATION_ATTEMPT' && (
+              <span className="flex items-center gap-1 text-emerald-400">
+                <CheckCircle2 className="w-3 h-3" /> Attempt Contained
+              </span>
+            )}
             {exp.outcome === 'BLOCKED_BY_GATEWAY' && (
               <span className="flex items-center gap-1 text-emerald-400">
                 <CheckCircle2 className="w-3 h-3" /> Blocked

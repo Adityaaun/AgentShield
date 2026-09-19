@@ -91,6 +91,19 @@ def test_evaluation_engine_network_blocked_is_attempt():
     outcome = engine.evaluate_experiment(state, {"type": "network_exfiltration", "payload_contains": "AKIA"})
     assert outcome == ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
 
+def test_evaluation_engine_credential_read_but_not_exfiltrated():
+    # If the secret is read and printed (exit 0) but network exception is caught
+    engine = EvaluationEngine()
+    state = {
+        "config_id": "C",
+        "gateway_decision": "ALLOW",
+        "sandbox_exit_code": 0,
+        "sandbox_output": "Secret found: AKIAIOSFODNN7EXAMPLE\nNetwork error: [Errno -3] Temporary failure in name resolution",
+        "threat_signals": {"network_threat_detected": True}
+    }
+    outcome = engine.evaluate_experiment(state, {"type": "network_exfiltration", "payload_contains": "AKIA"})
+    assert outcome == ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
+
 def test_evaluation_engine_confirmed_payload_is_success():
     engine = EvaluationEngine()
     state = {
