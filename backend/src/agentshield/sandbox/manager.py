@@ -96,6 +96,8 @@ class SandboxManager:
         fd, path = tempfile.mkstemp(suffix=".py", prefix="agentshield_")
         with os.fdopen(fd, 'w') as f:
             f.write(code)
+        # Ensure the file is readable by the 'nobody' user in the Docker container on Linux hosts
+        os.chmod(path, 0o644)
 
         # Synthetic secrets for environment — these bait the AI into trying to exfiltrate
         environment = {
