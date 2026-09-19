@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from agentshield.db.session import get_db
-from agentshield.db.models import Evaluation, AttackScenario, Experiment, Evidence, ExperimentAttempt
+from agentshield.db.models import Evaluation, AttackScenario, ScenarioRun, Attempt, ExecutionRun, Evidence, GatewayDecision, SandboxExecution
 from agentshield.runner import run_evaluation_matrix
 import json
 
@@ -86,92 +86,68 @@ async def evaluation_events(eval_id: int):
 
 @router.get("/evaluations/{eval_id}/scorecard")
 async def get_scorecard(eval_id: int, db: AsyncSession = Depends(get_db)):
-    # Retrieve all evidence for experiments belonging to this eval
+    # Retrieve all outcomes for execution runs belonging to this eval
     result = await db.execute(
-        select(Evidence).join(Experiment).where(Experiment.eval_id == eval_id)
+        select(ExecutionRun.primary_outcome)
+        .join(Attempt, ExecutionRun.attempt_id == Attempt.id)
+        .join(ScenarioRun, Attempt.scenario_run_id == ScenarioRun.id)
+        .where(ScenarioRun.eval_id == eval_id)
     )
-    evidences = result.scalars().all()
+    outcomes = result.scalars().all()
     
     from agentshield.evaluation.engine import MetricsCalculator
-    from agentshield.schema.scenario import EvidenceSchema
-    
-    schemas = [
-        EvidenceSchema(
-            attempted=ev.attempted,
-            gateway_blocked=ev.gateway_blocked,
-            sandbox_reached=ev.sandbox_reached,
-            sandbox_contained=ev.sandbox_contained,
-            attack_successful=ev.attack_successful,
-            sandbox_escape=ev.sandbox_escape,
-            successful_data_exfiltration=ev.successful_data_exfiltration
-        ) for ev in evidences
-    ]
-    
     calc = MetricsCalculator()
-    return calc.calculate_scorecard(schemas)
+    return calc.calculate_scorecard(outcomes)
 
 @router.get("/evaluations/{eval_id}/experiments-detail")
 async def get_experiments_detail(eval_id: int, db: AsyncSession = Depends(get_db)):
-    """Returns all experiments with full code, gateway decision, sandbox output, and scenario info."""
-    # Get all experiments for this eval
-    exp_result = await db.execute(
-        select(Experiment).where(Experiment.eval_id == eval_id).order_by(Experiment.id)
+    """Returns all execution runs with full code, gateway decision, sandbox output, and scenario info."""
+    result = await db.execute(
+        select(ExecutionRun, Attempt, ScenarioRun, AttackScenario)
+        .join(Attempt, ExecutionRun.attempt_id == Attempt.id)
+        .join(ScenarioRun, Attempt.scenario_run_id == ScenarioRun.id)
+        .join(AttackScenario, ScenarioRun.scenario_id == AttackScenario.id)
+        .where(ScenarioRun.eval_id == eval_id)
+        .order_by(ExecutionRun.id)
     )
-    experiments = exp_result.scalars().all()
     
     rows = []
-    for exp in experiments:
-        # Get the generated code from the latest attempt
-        attempt_result = await db.execute(
-            select(ExperimentAttempt).where(ExperimentAttempt.exp_id == exp.id).order_by(ExperimentAttempt.id.desc()).limit(1)
-        )
-        attempt = attempt_result.scalars().first()
+    for exec_run, attempt, sr, scenario in result:
+        # Get gateway decision
+        gw_result = await db.execute(select(GatewayDecision).where(GatewayDecision.execution_id == exec_run.id))
+        gw = gw_result.scalars().first()
         
-        # Get evidence
-        ev_result = await db.execute(select(Evidence).where(Evidence.exp_id == exp.id))
-        evidence = ev_result.scalars().first()
-        
-        # Get scenario name
-        sc_result = await db.execute(select(AttackScenario).where(AttackScenario.id == exp.scenario_id))
-        scenario = sc_result.scalars().first()
-        
-        # Extract sandbox output from evidence json_payload
-        sandbox_output = ""
-        gateway_decision = "N/A"
-        if evidence and evidence.json_payload:
-            payload = evidence.json_payload
-            sandbox_output = payload.get("sandbox_output") or ""
-            gateway_decision = payload.get("gateway_decision") or "N/A"
+        # Get sandbox execution
+        sb_result = await db.execute(select(SandboxExecution).where(SandboxExecution.execution_id == exec_run.id))
+        sb = sb_result.scalars().first()
         
         rows.append({
-            "exp_id": exp.id,
-            "config_id": exp.config_id,
-            "status": exp.status,
+            "exp_id": exec_run.id,
+            "config_id": exec_run.config_id,
+            "status": "COMPLETED",
             "scenario_category": scenario.category if scenario else "Unknown",
             "generated_code": attempt.generated_code if attempt else "",
-            "gateway_decision": gateway_decision,
-            "sandbox_exit_code": evidence.json_payload.get("sandbox_exit_code") if evidence and evidence.json_payload else None,
-            "sandbox_output": sandbox_output[:500] if sandbox_output else "",  # cap at 500 chars
-            "gateway_blocked": evidence.gateway_blocked if evidence else False,
-            "sandbox_escape": evidence.sandbox_escape if evidence else False,
-            "attack_successful": evidence.attack_successful if evidence else False,
+            "artifact_sha256": attempt.artifact_sha256 if attempt else "",
+            "gateway_decision": gw.decision if gw else "N/A",
+            "sandbox_exit_code": sb.exit_code if sb else None,
+            "sandbox_output": sb.stdout[:500] if sb and sb.stdout else "",
+            "outcome": exec_run.primary_outcome.value if exec_run.primary_outcome else "UNKNOWN",
         })
     
     return rows
 
 @router.get("/experiments/{exp_id}")
 async def get_experiment(exp_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Experiment).where(Experiment.id == exp_id))
-    experiment = result.scalars().first()
-    if not experiment:
-        raise HTTPException(status_code=404, detail="Experiment not found")
+    result = await db.execute(select(ExecutionRun).where(ExecutionRun.id == exp_id))
+    execution = result.scalars().first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="ExecutionRun not found")
         
-    # Also fetch evidence
-    ev_result = await db.execute(select(Evidence).where(Evidence.exp_id == exp_id))
+    ev_result = await db.execute(select(Evidence).where(Evidence.execution_id == exp_id))
     evidence = ev_result.scalars().first()
     
     return {
-        "experiment": experiment,
+        "experiment": execution,
         "evidence": evidence
     }
 
@@ -182,7 +158,7 @@ import os
 class ScenarioCreate(BaseModel):
     category: str
     prompt: str
-    success_condition: str
+    evaluator_config: dict
 
 @router.get("/scenarios")
 async def get_scenarios(db: AsyncSession = Depends(get_db)):
@@ -195,7 +171,7 @@ async def create_scenario(scenario: ScenarioCreate, db: AsyncSession = Depends(g
     new_scenario = AttackScenario(
         category=scenario.category,
         prompt=scenario.prompt,
-        success_condition=scenario.success_condition
+        evaluator_config=scenario.evaluator_config
     )
     db.add(new_scenario)
     await db.commit()
@@ -259,7 +235,7 @@ async def import_nvd_scenarios(db: AsyncSession = Depends(get_db)):
                 new_scenario = AttackScenario(
                     category=f"CVE ({term.title()})",
                     prompt=prompt,
-                    success_condition="code executed successfully",
+                    evaluator_config={"type": "file_read", "target": "cve_poc", "success": {"condition": "content_observed"}},
                     is_active=False  # Off by default — user must explicitly enable
                 )
                 db.add(new_scenario)

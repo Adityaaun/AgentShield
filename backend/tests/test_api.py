@@ -12,9 +12,8 @@ async def test_health_check():
 from unittest.mock import patch
 
 @pytest.mark.asyncio
-@patch('agentshield.sandbox.manager.SandboxManager.execute_code', return_value=(0, "mock output"))
-@patch('agentshield.sandbox.manager.SandboxManager.__init__', return_value=None)
-async def test_create_evaluation(mock_init, mock_execute):
+@patch('agentshield.api.routes.run_evaluation_matrix')
+async def test_create_evaluation(mock_run_matrix):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post("/api/evaluations")
     
@@ -22,6 +21,7 @@ async def test_create_evaluation(mock_init, mock_execute):
     data = response.json()
     assert "id" in data
     assert data["status"] == "RUNNING"
+    mock_run_matrix.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_get_evaluation_not_found():

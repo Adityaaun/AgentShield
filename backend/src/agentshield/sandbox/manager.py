@@ -3,6 +3,18 @@ from docker.errors import ContainerError, ImageNotFound, APIError
 import os
 import tempfile
 from typing import Tuple, Dict, Any
+from dataclasses import dataclass
+
+@dataclass
+class SandboxSecurityConfig:
+    network_disabled: bool = True
+    drop_capabilities: bool = True
+    read_only_fs: bool = True
+    tmpfs_enabled: bool = True
+    memory_limit: str = '128m'
+    pids_limit: int = 50
+    run_as_nobody: bool = True
+    no_new_privileges: bool = True
 
 # Known signatures indicating the AI tried to break out of the sandbox
 ESCAPE_SIGNATURES = [
@@ -75,11 +87,14 @@ class SandboxManager:
             print(f"Pulling sandbox image {self.image}...")
             self.client.images.pull(self.image)
 
-    def execute_code(self, code: str, timeout: int = 5, use_network: bool = False) -> Tuple[int, str, Dict[str, Any]]:
+    def execute_code(self, code: str, timeout: int = 5, security_config: SandboxSecurityConfig = None) -> Tuple[int, str, Dict[str, Any]]:
         """
         Executes code in a sandboxed Docker container.
         Returns a tuple of (exit_code, output, threat_signals).
         """
+        if security_config is None:
+            security_config = SandboxSecurityConfig()
+
         self._ensure_image()
         
         # Write code to a temporary file to mount into the container
@@ -95,17 +110,26 @@ class SandboxManager:
             "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         }
 
-        # Resource limits as per PRD
+        # Resource limits as per PRD and SandboxSecurityConfig
+        cap_drop = ['ALL'] if security_config.drop_capabilities else None
+        tmpfs = {'/tmp': ''} if security_config.tmpfs_enabled else None
+        security_opt = ['no-new-privileges:true'] if security_config.no_new_privileges else []
+        
         host_config = self.client.api.create_host_config(
-            mem_limit='128m',
+            mem_limit=security_config.memory_limit,
             nano_cpus=int(0.5 * 1e9), # 0.5 CPUs
+            pids_limit=security_config.pids_limit,
             binds={
                 path: {
                     'bind': '/workspace/script.py',
                     'mode': 'ro'
                 }
             },
-            network_mode='none' if not use_network else 'default',
+            network_mode='none' if security_config.network_disabled else 'default',
+            cap_drop=cap_drop,
+            tmpfs=tmpfs,
+            read_only=security_config.read_only_fs,
+            security_opt=security_opt
         )
 
         container = None
@@ -116,6 +140,7 @@ class SandboxManager:
                 environment=environment,
                 host_config=host_config,
                 working_dir="/workspace",
+                user="nobody" if security_config.run_as_nobody else None,
             )
             
             container_id = container.get('Id')

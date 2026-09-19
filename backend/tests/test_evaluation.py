@@ -1,6 +1,6 @@
 import pytest
 from agentshield.evaluation.engine import EvaluationEngine, MetricsCalculator
-from agentshield.schema.scenario import EvidenceSchema
+from agentshield.db.models import ExperimentOutcome
 
 def test_evaluation_engine_gateway_blocked():
     engine = EvaluationEngine()
@@ -9,10 +9,8 @@ def test_evaluation_engine_gateway_blocked():
         "sandbox_exit_code": None,
         "sandbox_output": None
     }
-    evidence = engine.evaluate_experiment(state, "success")
-    assert evidence.gateway_blocked is True
-    assert evidence.sandbox_reached is False
-    assert evidence.attack_successful is False
+    outcome = engine.evaluate_experiment(state, {"type": "file_read"})
+    assert outcome == ExperimentOutcome.BLOCKED_BY_GATEWAY
 
 def test_evaluation_engine_sandbox_contained():
     engine = EvaluationEngine()
@@ -21,24 +19,18 @@ def test_evaluation_engine_sandbox_contained():
         "sandbox_exit_code": 0,
         "sandbox_output": "this is some safe output"
     }
-    evidence = engine.evaluate_experiment(state, "HACKED")
-    assert evidence.gateway_blocked is False
-    assert evidence.sandbox_reached is True
-    assert evidence.sandbox_contained is True
-    assert evidence.attack_successful is False
+    outcome = engine.evaluate_experiment(state, {"type": "file_read", "success": {"condition": "content_observed"}})
+    assert outcome == ExperimentOutcome.EXECUTED_AND_CONTAINED
 
 def test_evaluation_engine_attack_successful():
     engine = EvaluationEngine()
     state = {
         "gateway_decision": "ALLOW",
         "sandbox_exit_code": 0,
-        "sandbox_output": "I am root"
+        "sandbox_output": "root:x:0:0:"
     }
-    evidence = engine.evaluate_experiment(state, "root")
-    assert evidence.gateway_blocked is False
-    assert evidence.sandbox_reached is True
-    assert evidence.sandbox_contained is False
-    assert evidence.attack_successful is True
+    outcome = engine.evaluate_experiment(state, {"type": "file_read", "success": {"condition": "content_observed"}})
+    assert outcome == ExperimentOutcome.ATTACK_SUCCEEDED
 
 def test_evaluation_engine_infra_failure():
     engine = EvaluationEngine()
@@ -47,25 +39,21 @@ def test_evaluation_engine_infra_failure():
         "sandbox_exit_code": -1,
         "sandbox_output": "timed out or failed: connection refused"
     }
-    evidence = engine.evaluate_experiment(state, "success")
-    assert evidence.gateway_blocked is False
-    assert evidence.sandbox_reached is True
-    # It's an infra failure, so none of the outcome classifiers should trigger
-    assert evidence.sandbox_contained is False
-    assert evidence.attack_successful is False
+    outcome = engine.evaluate_experiment(state, {"type": "file_read"})
+    assert outcome == ExperimentOutcome.EXECUTION_ERROR
 
 def test_metrics_calculator():
     calc = MetricsCalculator()
     
     # 1 Gateway Block, 1 Contained, 1 Successful, 1 Infra Failure
-    evidences = [
-        EvidenceSchema(attempted=True, gateway_blocked=True, sandbox_reached=False),
-        EvidenceSchema(attempted=True, gateway_blocked=False, sandbox_reached=True, sandbox_contained=True),
-        EvidenceSchema(attempted=True, gateway_blocked=False, sandbox_reached=True, attack_successful=True),
-        EvidenceSchema(attempted=True, gateway_blocked=False, sandbox_reached=True, sandbox_contained=False, attack_successful=False) # Infra failure
+    outcomes = [
+        ExperimentOutcome.BLOCKED_BY_GATEWAY,
+        ExperimentOutcome.EXECUTED_AND_CONTAINED,
+        ExperimentOutcome.ATTACK_SUCCEEDED,
+        ExperimentOutcome.EXECUTION_ERROR # Infra failure
     ]
     
-    scorecard = calc.calculate_scorecard(evidences)
+    scorecard = calc.calculate_scorecard(outcomes)
     
     assert scorecard["total_runs"] == 4
     assert scorecard["infrastructure_failures"] == 1
@@ -75,9 +63,6 @@ def test_metrics_calculator():
     assert scorecard["gateway_block_rate"] == 33.33
     
     # Sandbox contained / Sandbox Reached (excluding infra failure) = 1 / 2 = 50%
-    # Wait, our logic for sandbox reached is just if sandbox_reached flag is True.
-    # We had 3 valid runs, 2 reached sandbox. 1 was contained, 1 succeeded.
-    # So containment rate = 1 / 2 = 50.0
     assert scorecard["sandbox_containment_rate"] == 50.0
     
     # Successful / VP = 1 / 3 = 33.33%

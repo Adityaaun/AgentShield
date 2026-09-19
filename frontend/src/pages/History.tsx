@@ -90,7 +90,7 @@ export default function History() {
           <div className="absolute left-[27px] top-4 bottom-4 w-[2px] bg-gradient-to-b from-blue-500/50 via-obsidian-700 to-transparent" />
 
           <div className="space-y-4">
-            {evaluations.map((ev, index) => {
+            {evaluations.map((ev) => {
               const cfg = statusConfig[ev.status] || statusConfig.UNKNOWN;
               const StatusIcon = cfg.icon;
 

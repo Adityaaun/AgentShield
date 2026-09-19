@@ -26,9 +26,9 @@ async def test_langgraph_baseline():
     }
     
     final_state = await app.ainvoke(initial_state)
-    # Config A goes to baseline_execution which returns "success_baseline"
+    # Config A goes to baseline_execution which actually executes in Sandbox now
     assert final_state["status"] == "executed"
-    assert final_state["sandbox_output"] == "success_baseline"
+    assert "hello world" in final_state["sandbox_output"]
     assert final_state["generated_code"] is not None
 
 @pytest.mark.asyncio

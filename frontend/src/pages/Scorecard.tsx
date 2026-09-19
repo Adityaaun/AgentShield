@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import {
   AlertTriangle, ShieldCheck, Activity, RefreshCw,
@@ -23,12 +23,11 @@ interface ExperimentDetail {
   status: string;
   scenario_category: string;
   generated_code: string;
+  artifact_sha256: string;
   gateway_decision: string;
   sandbox_exit_code: number | null;
   sandbox_output: string;
-  gateway_blocked: boolean;
-  sandbox_escape: boolean;
-  attack_successful: boolean;
+  outcome: string;
 }
 
 const CONFIG_LABELS: Record<string, string> = {
@@ -283,8 +282,8 @@ function MetricSection({ data, label, compareWith }: { data: ScorecardData; labe
 }
 
 function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; isExpanded: boolean; onToggle: () => void }) {
-  const gatewayColor = exp.gateway_blocked ? 'text-red-400' : exp.gateway_decision === 'ALLOW' ? 'text-emerald-400' : 'text-slate-400';
-  const escapeColor = exp.sandbox_escape ? 'text-red-500 font-bold' : 'text-slate-500';
+  const gatewayColor = exp.outcome === 'BLOCKED_BY_GATEWAY' ? 'text-red-400' : exp.gateway_decision === 'ALLOW' ? 'text-emerald-400' : 'text-slate-400';
+  const escapeColor = exp.outcome === 'SANDBOX_ESCAPE_ATTEMPT' ? 'text-red-500 font-bold' : 'text-slate-500';
 
   return (
     <div className="hover:bg-obsidian-800/30 transition-colors">
@@ -301,6 +300,9 @@ function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; i
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-white font-semibold text-sm">{exp.scenario_category}</span>
             <span className="text-xs text-slate-500 font-mono">{CONFIG_LABELS[exp.config_id] || exp.config_id}</span>
+            <span className="text-xs text-slate-600 font-mono" title="Artifact SHA-256">
+              {exp.artifact_sha256 ? exp.artifact_sha256.substring(0, 8) : ''}
+            </span>
           </div>
           <div className="flex items-center gap-4 mt-1 text-xs">
             <span className={`flex items-center gap-1 ${gatewayColor}`}>
@@ -312,19 +314,29 @@ function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; i
                 <Terminal className="w-3 h-3" /> Exit: {exp.sandbox_exit_code}
               </span>
             )}
-            {exp.sandbox_escape && (
+            {exp.outcome === 'SANDBOX_ESCAPE_ATTEMPT' && (
               <span className={`flex items-center gap-1 ${escapeColor}`}>
                 <Zap className="w-3 h-3" /> ESCAPE DETECTED
               </span>
             )}
-            {exp.attack_successful && !exp.sandbox_escape && (
+            {exp.outcome === 'ATTACK_SUCCEEDED' && (
               <span className="flex items-center gap-1 text-orange-400">
                 <XCircle className="w-3 h-3" /> Attack Successful
               </span>
             )}
-            {!exp.attack_successful && !exp.gateway_blocked && (
+            {exp.outcome === 'DATA_EXFILTRATION_SUCCESS' && (
+              <span className="flex items-center gap-1 text-orange-400">
+                <XCircle className="w-3 h-3" /> Exfil Successful
+              </span>
+            )}
+            {exp.outcome === 'EXECUTED_AND_CONTAINED' && (
               <span className="flex items-center gap-1 text-emerald-400">
                 <CheckCircle2 className="w-3 h-3" /> Contained
+              </span>
+            )}
+            {exp.outcome === 'BLOCKED_BY_GATEWAY' && (
+              <span className="flex items-center gap-1 text-emerald-400">
+                <CheckCircle2 className="w-3 h-3" /> Blocked
               </span>
             )}
           </div>

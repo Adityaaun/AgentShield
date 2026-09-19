@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Terminal, Activity, CheckCircle2, ShieldAlert, Cpu, Network, Box, Lock, TerminalSquare, X, Shield } from 'lucide-react';
+import { Terminal, Activity, CheckCircle2, ShieldAlert, Box, Lock, TerminalSquare, X, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface LiveEvaluationProps {
@@ -32,11 +32,11 @@ export default function LiveEvaluation({ evalId, onClose }: LiveEvaluationProps)
         const msg = data.message;
         setLogs(prev => [...prev, { time, msg }]);
         
-        // Track overall matrix progress instead of jumping around for each run
-        if (msg.includes('Starting Experiment: Config A')) setActiveStage(1);
-        if (msg.includes('Starting Experiment: Config B')) setActiveStage(2);
-        if (msg.includes('Starting Experiment: Config C')) setActiveStage(3);
-        if (msg.includes('Starting Experiment: Config D')) setActiveStage(4);
+        // Track overall matrix progress
+        if (msg.includes('[A] Executing artifact')) setActiveStage(1);
+        if (msg.includes('[B] Executing artifact')) setActiveStage(2);
+        if (msg.includes('[C] Executing artifact')) setActiveStage(3);
+        if (msg.includes('[D] Executing artifact')) setActiveStage(4);
       }
     };
 

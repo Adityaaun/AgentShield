@@ -5,7 +5,7 @@ interface Scenario {
   id: number;
   category: string;
   prompt: string;
-  success_condition: string;
+  evaluator_config: any;
   is_active: boolean;
 }
 
@@ -40,6 +40,15 @@ export default function Scenarios() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let evalConfig = {};
+      try {
+        evalConfig = JSON.parse(newCondition);
+      } catch (e) {
+        alert("Success Condition must be valid JSON.");
+        setSubmitting(false);
+        return;
+      }
+      
       const res = await fetch('/api/scenarios', {
         method: 'POST',
         headers: {
@@ -47,7 +56,7 @@ export default function Scenarios() {
         },
         body: JSON.stringify({
           category: newCategory,
-          success_condition: newCondition,
+          evaluator_config: evalConfig,
           prompt: newPrompt
         })
       });
@@ -141,7 +150,7 @@ export default function Scenarios() {
                 
                 <div className="flex items-center gap-2 text-sm text-slate-400 mb-4 bg-obsidian-950 p-3 rounded-lg border border-obsidian-800">
                   <AlertCircle className="w-4 h-4 text-amber-500" />
-                  <span className="font-medium text-slate-300">Success Condition:</span> {s.success_condition}
+                  <span className="font-medium text-slate-300">Evaluator Config:</span> {JSON.stringify(s.evaluator_config)}
                 </div>
                 
                 <div className="relative group/code">
@@ -183,7 +192,7 @@ export default function Scenarios() {
                 value={newCondition}
                 onChange={e => setNewCondition(e.target.value)}
                 className="w-full bg-obsidian-950 border border-obsidian-700 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
-                placeholder="String to match in output..."
+                placeholder='e.g. {"type": "file_read"}'
               />
             </div>
             <div>
