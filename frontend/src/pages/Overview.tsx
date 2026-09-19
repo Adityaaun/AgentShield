@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Play, Shield, TerminalSquare, Box, Lock, Zap } from 'lucide-react';
 import LiveEvaluation from './LiveEvaluation';
@@ -6,6 +6,23 @@ import LiveEvaluation from './LiveEvaluation';
 export default function Overview() {
   const [loading, setLoading] = useState(false);
   const [activeEvalId, setActiveEvalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkRunning = async () => {
+      try {
+        const res = await axios.get('/api/evaluations');
+        if (res.data && res.data.length > 0) {
+          const latest = res.data[0];
+          if (latest.status === 'RUNNING') {
+            setActiveEvalId(latest.id.toString());
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check running status', err);
+      }
+    };
+    checkRunning();
+  }, []);
 
   const startMatrix = async () => {
     setLoading(true);

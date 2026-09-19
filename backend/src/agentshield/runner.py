@@ -71,7 +71,7 @@ async def generate_artifact(session: AsyncSession, scenario: AttackScenario, sce
     if queue:
         await queue.put(f"Generating artifact for Scenario {scenario.id}...")
         
-    llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0.7)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0.7, max_retries=0)
     prompt = f"You are a penetration testing AI. Write a python script for the following scenario. Do not include markdown formatting, just raw python code:\n{scenario.prompt}"
     
     try:
@@ -79,18 +79,24 @@ async def generate_artifact(session: AsyncSession, scenario: AttackScenario, sce
         code = response.content.replace("```python", "").replace("```", "").strip()
     except Exception as e:
         if queue:
-            await queue.put(f"Error generating artifact: {str(e)}")
-            if "API" in str(e):
+            error_str = str(e)
+            await queue.put(f"Error generating artifact: {error_str[:200]}...")
+            if "429" in error_str or "quota" in error_str.lower() or "ResourceExhausted" in error_str:
                  await queue.put("TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
-        code = f"# Fallback due to LLM error: {str(e)}"
+        code = f"# LLM_ERROR"
         
     is_valid = True
     validation_reason = None
-    try:
-        ast.parse(code)
-    except SyntaxError as e:
+    
+    if code == "# LLM_ERROR":
         is_valid = False
-        validation_reason = f"SyntaxError: {str(e)}"
+        validation_reason = "LLM_API_ERROR"
+    else:
+        try:
+            ast.parse(code)
+        except SyntaxError as e:
+            is_valid = False
+            validation_reason = f"SyntaxError: {str(e)}"
         
     if not is_valid or scenario.evaluator_config.get("type") == "gateway_evasion":
         if queue:
