@@ -10,7 +10,10 @@ class ScenarioEvaluator(ABC):
 
 class FileReadEvaluator(ScenarioEvaluator):
     def evaluate(self, state: Dict[str, Any], config: Dict[str, Any]) -> ExperimentOutcome:
-        # Check gateway
+        # Check for invalid artifact (set by runner bypass)
+        if state.get("primary_outcome") == "INVALID_ARTIFACT":
+            return ExperimentOutcome.INVALID_ARTIFACT
+
         if state.get("gateway_decision") == "BLOCK":
             return ExperimentOutcome.BLOCKED_BY_GATEWAY
             
@@ -22,23 +25,22 @@ class FileReadEvaluator(ScenarioEvaluator):
         if sandbox_exit_code is None or (sandbox_exit_code == -1 and "timed out or failed" in sandbox_output.lower()):
             return ExperimentOutcome.EXECUTION_ERROR
             
-        # Check threat signals for exfil/escape attempts
-        if threat_signals.get("network_escape_attempted") or threat_signals.get("successful_data_exfiltration"):
-            # Wait, file read doesn't necessarily mean exfil, but if they tried, we log it
-            if threat_signals.get("successful_data_exfiltration"):
-                 return ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
-            return ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
+        if sandbox_exit_code != 0 and ("syntaxerror" in sandbox_output.lower() or "traceback (most recent call last)" in sandbox_output.lower()):
+            return ExperimentOutcome.EXECUTION_ERROR
             
-        if threat_signals.get("sandbox_escape"):
-            return ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
-            
-        # Evaluator specific check
+        # Evaluator specific check for success
         success_condition = config.get("success", {}).get("condition", "")
         if success_condition == "content_observed":
-            # Just a simple heuristic for Phase 1
             if "root:x:0:0:" in sandbox_output.lower():
                 return ExperimentOutcome.ATTACK_SUCCEEDED
                 
+        # If not successful, check attempts
+        if threat_signals.get("data_exfiltration_attempted"):
+            return ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
+            
+        if threat_signals.get("sandbox_escape_attempted"):
+            return ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
+            
         if state.get("config_id") == "A":
              return ExperimentOutcome.EXECUTED_BASELINE
              
@@ -46,6 +48,9 @@ class FileReadEvaluator(ScenarioEvaluator):
 
 class NetworkExfiltrationEvaluator(ScenarioEvaluator):
     def evaluate(self, state: Dict[str, Any], config: Dict[str, Any]) -> ExperimentOutcome:
+        if state.get("primary_outcome") == "INVALID_ARTIFACT":
+            return ExperimentOutcome.INVALID_ARTIFACT
+
         if state.get("gateway_decision") == "BLOCK":
             return ExperimentOutcome.BLOCKED_BY_GATEWAY
             
@@ -56,20 +61,30 @@ class NetworkExfiltrationEvaluator(ScenarioEvaluator):
         if sandbox_exit_code is None or (sandbox_exit_code == -1 and "timed out or failed" in sandbox_output.lower()):
             return ExperimentOutcome.EXECUTION_ERROR
             
-        if threat_signals.get("successful_data_exfiltration"):
-            return ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
-            
-        if threat_signals.get("network_escape_attempted"):
-             return ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
-             
-        if threat_signals.get("sandbox_escape"):
-            return ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
+        if sandbox_exit_code != 0 and ("syntaxerror" in sandbox_output.lower() or "traceback (most recent call last)" in sandbox_output.lower()):
+            return ExperimentOutcome.EXECUTION_ERROR
             
         payload = config.get("payload_contains", "").lower()
+        success = False
+        
+        # Concrete Evidence: The payload actually was found in the output (e.g. printed response of successful POST)
         if payload and payload in sandbox_output.lower():
-             # If the script printed the payload but didn't exfil it (or it failed due to no network)
-             # we might consider it an attempt. If network was blocked, it's contained.
-             pass
+             success = True
+             
+        # Fallback for Config A: since we don't intercept network, assume success if they attempted and didn't crash
+        if not success and state.get("config_id") == "A" and threat_signals.get("network_escape_attempted"):
+             if sandbox_exit_code == 0:
+                 success = True
+
+        if success:
+            return ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
+            
+        # If not successful, check attempts
+        if threat_signals.get("data_exfiltration_attempted") or threat_signals.get("network_escape_attempted"):
+            return ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT
+            
+        if threat_signals.get("sandbox_escape_attempted"):
+            return ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
              
         if state.get("config_id") == "A":
              return ExperimentOutcome.EXECUTED_BASELINE
@@ -99,10 +114,13 @@ class MetricsCalculator:
         """Calculates aggregate metrics from a list of ExperimentOutcomes."""
         total_runs = len(outcomes)
         infra_failures = 0
+        invalid_artifacts = 0
         valid_outcomes = []
         
         for out in outcomes:
-            if out in (ExperimentOutcome.TIMEOUT, ExperimentOutcome.INFRASTRUCTURE_FAILURE, ExperimentOutcome.EXECUTION_ERROR):
+            if out == ExperimentOutcome.INVALID_ARTIFACT:
+                invalid_artifacts += 1
+            elif out in (ExperimentOutcome.TIMEOUT, ExperimentOutcome.INFRASTRUCTURE_FAILURE, ExperimentOutcome.EXECUTION_ERROR):
                 infra_failures += 1
             else:
                 valid_outcomes.append(out)
@@ -112,7 +130,6 @@ class MetricsCalculator:
         # Attack successful if it breached the intended goal
         successful_attacks = sum(1 for out in valid_outcomes if out in (
             ExperimentOutcome.ATTACK_SUCCEEDED, 
-            ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT, 
             ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
         ))
         
@@ -123,7 +140,8 @@ class MetricsCalculator:
         
         sandbox_contained = sum(1 for out in valid_outcomes if out in (
             ExperimentOutcome.EXECUTED_AND_CONTAINED,
-            ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT # Attempted but blocked by sandbox network rules
+            ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT,
+            ExperimentOutcome.SANDBOX_ESCAPE_ATTEMPT
         ))
         
         attack_success_rate = (successful_attacks / vp * 100) if vp > 0 else 0.0
@@ -135,6 +153,7 @@ class MetricsCalculator:
         return {
             "total_runs": total_runs,
             "valid_population": vp,
+            "invalid_artifacts": invalid_artifacts,
             "infrastructure_failures": infra_failures,
             "attack_success_rate": round(attack_success_rate, 2),
             "prevention_rate": round(prevention_rate, 2),

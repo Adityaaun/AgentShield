@@ -11,6 +11,7 @@ export default function LiveEvaluation({ evalId, onClose }: LiveEvaluationProps)
   const [logs, setLogs] = useState<{time: string, msg: string}[]>([]);
   const [activeStage, setActiveStage] = useState<number>(0);
   const logsEndRef = useRef<HTMLDivElement>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {

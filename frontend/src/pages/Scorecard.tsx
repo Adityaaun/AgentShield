@@ -10,6 +10,7 @@ import { useLocation } from 'react-router-dom';
 interface ScorecardData {
   total_runs: number;
   valid_population: number;
+  invalid_artifacts: number;
   infrastructure_failures: number;
   attack_success_rate: number;
   prevention_rate: number;
@@ -218,9 +219,10 @@ export default function Scorecard() {
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
               <Activity className="w-4 h-4" /> Execution Summary
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <StatBlock label="Total Pipeline Runs" value={data.total_runs} />
               <StatBlock label="Valid Population" value={data.valid_population} color="text-blue-400" />
+              <StatBlock label="Invalid Artifacts" value={data.invalid_artifacts} color="text-slate-400" />
               <StatBlock label="Infrastructure Failures" value={data.infrastructure_failures} color="text-amber-500" />
             </div>
           </div>
@@ -282,8 +284,9 @@ function MetricSection({ data, label, compareWith }: { data: ScorecardData; labe
 }
 
 function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; isExpanded: boolean; onToggle: () => void }) {
-  const gatewayColor = exp.outcome === 'BLOCKED_BY_GATEWAY' ? 'text-red-400' : exp.gateway_decision === 'ALLOW' ? 'text-emerald-400' : 'text-slate-400';
-  const escapeColor = exp.outcome === 'SANDBOX_ESCAPE_ATTEMPT' ? 'text-red-500 font-bold' : 'text-slate-500';
+  const isInvalid = exp.outcome === 'INVALID_ARTIFACT';
+  const gatewayColor = isInvalid ? 'text-slate-600' : exp.outcome === 'BLOCKED_BY_GATEWAY' ? 'text-red-400' : exp.gateway_decision === 'ALLOW' ? 'text-emerald-400' : 'text-slate-400';
+  const escapeColor = isInvalid ? 'text-slate-600' : exp.outcome === 'SANDBOX_ESCAPE_ATTEMPT' ? 'text-red-500 font-bold' : 'text-slate-500';
 
   return (
     <div className="hover:bg-obsidian-800/30 transition-colors">
@@ -337,6 +340,11 @@ function ExperimentRow({ exp, isExpanded, onToggle }: { exp: ExperimentDetail; i
             {exp.outcome === 'BLOCKED_BY_GATEWAY' && (
               <span className="flex items-center gap-1 text-emerald-400">
                 <CheckCircle2 className="w-3 h-3" /> Blocked
+              </span>
+            )}
+            {isInvalid && (
+              <span className="flex items-center gap-1 text-slate-500 font-bold">
+                <AlertTriangle className="w-3 h-3" /> Invalid Artifact
               </span>
             )}
           </div>

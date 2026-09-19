@@ -16,6 +16,7 @@ class ExperimentOutcome(str, enum.Enum):
     TIMEOUT = "TIMEOUT"
     INFRASTRUCTURE_FAILURE = "INFRASTRUCTURE_FAILURE"
     EXECUTION_ERROR = "EXECUTION_ERROR"
+    INVALID_ARTIFACT = "INVALID_ARTIFACT"
 
 class Evaluation(Base):
     __tablename__ = "evaluations"
@@ -48,6 +49,8 @@ class Attempt(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     generated_code: Mapped[str] = mapped_column(String)
     artifact_sha256: Mapped[str] = mapped_column(String(64))
+    is_valid: Mapped[bool] = mapped_column(Boolean, default=True)
+    validation_reason: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 class ExecutionRun(Base):
     """Execution of an Attempt under a specific Config."""

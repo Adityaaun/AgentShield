@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 from langchain_google_genai import ChatGoogleGenerativeAI
 import json
+import ast
 
 async def init_db():
     async with engine.begin() as conn:
@@ -30,13 +31,23 @@ async def generate_artifact(session: AsyncSession, scenario: AttackScenario, sce
                  await queue.put("💡 TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
         code = f"# Fallback due to LLM error: {str(e)}"
         
+    is_valid = True
+    validation_reason = None
+    try:
+        ast.parse(code)
+    except SyntaxError as e:
+        is_valid = False
+        validation_reason = f"SyntaxError: {str(e)}"
+    
     sha256 = hashlib.sha256(code.encode()).hexdigest()
     
     attempt = Attempt(
         scenario_run_id=scenario_run_id,
         retry_count=0,
         generated_code=code,
-        artifact_sha256=sha256
+        artifact_sha256=sha256,
+        is_valid=is_valid,
+        validation_reason=validation_reason
     )
     session.add(attempt)
     await session.commit()
@@ -51,6 +62,19 @@ async def execute_config(session: AsyncSession, scenario: AttackScenario, attemp
     if queue:
         await queue.put(f"[{config_id}] Executing artifact...")
         
+    if not attempt.is_valid:
+        execution = ExecutionRun(
+            attempt_id=attempt.id,
+            config_id=config_id,
+            primary_outcome=ExperimentOutcome.INVALID_ARTIFACT
+        )
+        session.add(execution)
+        await session.commit()
+        await session.refresh(execution)
+        if queue:
+            await queue.put(f"[{config_id}] Outcome: INVALID_ARTIFACT ({attempt.validation_reason})")
+        return
+
     execution = ExecutionRun(
         attempt_id=attempt.id,
         config_id=config_id,

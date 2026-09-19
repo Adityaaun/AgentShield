@@ -64,8 +64,8 @@ def detect_threat_signals(code: str, output: str) -> Dict[str, Any]:
     )
 
     return {
-        "sandbox_escape": escape_detected,
-        "successful_data_exfiltration": exfil_detected and not network_attempted,
+        "sandbox_escape_attempted": escape_detected,
+        "data_exfiltration_attempted": exfil_detected,
         "network_escape_attempted": network_attempted or exfil_detected,
         "threat_summary": (
             f"Escape attempt: {escape_detected}, "
