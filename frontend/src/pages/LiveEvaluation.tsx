@@ -147,10 +147,11 @@ export default function LiveEvaluation({ evalId, onClose }: LiveEvaluationProps)
         <div className="p-4 overflow-y-auto flex-1 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]">
           {logs.map((log, i) => {
             let color = 'text-slate-300';
-            if (log.msg.includes('BLOCK')) color = 'text-red-400 font-bold';
+            if (log.msg.includes('TIP:')) color = 'text-yellow-300 font-bold bg-yellow-900/40 px-2 py-0.5 rounded border border-yellow-700/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]';
+            else if (log.msg.includes('BLOCK')) color = 'text-red-400 font-bold';
             else if (log.msg.includes('ALLOW')) color = 'text-green-400 font-bold';
             else if (log.msg.includes('Agent')) color = 'text-blue-400';
-            else if (log.msg.includes('Error')) color = 'text-red-500';
+            else if (log.msg.includes('Error')) color = 'text-red-500 font-bold';
 
             return (
               <div key={i} className="mb-1.5 hover:bg-white/5 px-1.5 py-0.5 rounded transition-colors break-words leading-relaxed">
