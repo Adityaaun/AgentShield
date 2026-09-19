@@ -41,7 +41,7 @@ async def list_evaluations(db: AsyncSession = Depends(get_db)):
             "id": ev.id,
             "name": ev.name,
             "status": ev.status,
-            "created_at": ev.created_at.isoformat() if ev.created_at else None
+            "created_at": ev.created_at.isoformat() + "Z" if ev.created_at else None
         }
         for ev in evaluations
     ]
