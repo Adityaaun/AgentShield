@@ -81,7 +81,7 @@ async def generate_artifact(session: AsyncSession, scenario: AttackScenario, sce
         if queue:
             await queue.put(f"Error generating artifact: {str(e)}")
             if "API" in str(e):
-                 await queue.put("💡 TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
+                 await queue.put("TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
         code = f"# Fallback due to LLM error: {str(e)}"
         
     is_valid = True
@@ -255,7 +255,7 @@ async def run_evaluation_matrix(eval_id: int, queue: asyncio.Queue):
         except Exception as e:
             await queue.put(f"Error: {str(e)}")
             if "API Rate Limit" in str(e):
-                await queue.put("💡 TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
+                await queue.put("TIP: Go to the 'Settings' page (bottom left) to add your own API key and bypass rate limits!")
             await queue.put("DONE")
             evaluation.status = "FAILED"
             session.add(evaluation)
