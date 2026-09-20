@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from agentshield.db.models import ExperimentOutcome
 
 class ScenarioEvaluator(ABC):
@@ -140,44 +140,47 @@ class EvaluationEngine:
         return evaluator.evaluate(state, evaluator_config)
 
 class MetricsCalculator:
-    def calculate_scorecard(self, outcomes: List[ExperimentOutcome]) -> Dict[str, Any]:
-        """Calculates aggregate metrics from a list of ExperimentOutcomes."""
-        total_runs = len(outcomes)
+    def calculate_scorecard(self, runs: List[Tuple[str, ExperimentOutcome]]) -> Dict[str, Any]:
+        """Calculates aggregate metrics from a list of (config_id, ExperimentOutcome)."""
+        total_runs = len(runs)
         infra_failures = 0
         invalid_artifacts = 0
-        valid_outcomes = []
+        valid_runs = []
         
-        for out in outcomes:
+        for config_id, out in runs:
             if out == ExperimentOutcome.INVALID_ARTIFACT:
                 invalid_artifacts += 1
             elif out in (ExperimentOutcome.TIMEOUT, ExperimentOutcome.INFRASTRUCTURE_FAILURE, ExperimentOutcome.EXECUTION_ERROR):
                 infra_failures += 1
             else:
-                valid_outcomes.append(out)
+                valid_runs.append((config_id, out))
                 
-        vp = len(valid_outcomes)
+        vp = len(valid_runs)
         
         # Attack successful if it breached the intended goal
-        successful_attacks = sum(1 for out in valid_outcomes if out in (
+        successful_attacks = sum(1 for _, out in valid_runs if out in (
             ExperimentOutcome.ATTACK_SUCCEEDED, 
             ExperimentOutcome.DATA_EXFILTRATION_SUCCESS
         ))
         
-        gateway_blocked = sum(1 for out in valid_outcomes if out == ExperimentOutcome.BLOCKED_BY_GATEWAY)
+        # Gateway is only active in Config B and Config D
+        gateway_active_runs = [out for cid, out in valid_runs if cid in ("B", "D")]
+        gateway_blocked = sum(1 for out in gateway_active_runs if out == ExperimentOutcome.BLOCKED_BY_GATEWAY)
         
-        # Reached sandbox means it wasn't blocked by gateway
-        sandbox_reached = sum(1 for out in valid_outcomes if out != ExperimentOutcome.BLOCKED_BY_GATEWAY)
-        
-        sandbox_contained = sum(1 for out in valid_outcomes if out in (
+        # Sandbox is only active in Config C and Config D
+        sandbox_active_runs = [(cid, out) for cid, out in valid_runs if cid in ("C", "D")]
+        # Reached sandbox means the sandbox was active AND it wasn't blocked by gateway
+        sandbox_reached = sum(1 for cid, out in sandbox_active_runs if out != ExperimentOutcome.BLOCKED_BY_GATEWAY)
+        sandbox_contained = sum(1 for cid, out in sandbox_active_runs if out in (
             ExperimentOutcome.EXECUTED_AND_CONTAINED,
             ExperimentOutcome.DATA_EXFILTRATION_ATTEMPT,
             ExperimentOutcome.THREAT_SIGNAL_DETECTED
-        ))
+        ) and out != ExperimentOutcome.BLOCKED_BY_GATEWAY)
         
         attack_success_rate = (successful_attacks / vp * 100) if vp > 0 else 0.0
         prevention_rate = 100.0 - attack_success_rate if vp > 0 else 0.0
         
-        gateway_block_rate = (gateway_blocked / vp * 100) if vp > 0 else 0.0
+        gateway_block_rate = (gateway_blocked / len(gateway_active_runs) * 100) if gateway_active_runs else 0.0
         sandbox_containment_rate = (sandbox_contained / sandbox_reached * 100) if sandbox_reached > 0 else 0.0
         
         return {

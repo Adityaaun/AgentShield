@@ -88,16 +88,16 @@ async def evaluation_events(eval_id: int):
 async def get_scorecard(eval_id: int, db: AsyncSession = Depends(get_db)):
     # Retrieve all outcomes for execution runs belonging to this eval
     result = await db.execute(
-        select(ExecutionRun.primary_outcome)
+        select(ExecutionRun.config_id, ExecutionRun.primary_outcome)
         .join(Attempt, ExecutionRun.attempt_id == Attempt.id)
         .join(ScenarioRun, Attempt.scenario_run_id == ScenarioRun.id)
         .where(ScenarioRun.eval_id == eval_id)
     )
-    outcomes = result.scalars().all()
+    runs = result.all()
     
     from agentshield.evaluation.engine import MetricsCalculator
     calc = MetricsCalculator()
-    return calc.calculate_scorecard(outcomes)
+    return calc.calculate_scorecard(runs)
 
 @router.get("/evaluations/{eval_id}/experiments-detail")
 async def get_experiments_detail(eval_id: int, db: AsyncSession = Depends(get_db)):

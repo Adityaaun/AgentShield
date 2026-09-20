@@ -120,26 +120,26 @@ def test_metrics_calculator():
     calc = MetricsCalculator()
     
     # 1 Gateway Block, 1 Contained, 1 Successful, 1 Infra Failure, 1 Invalid Artifact
-    outcomes = [
-        ExperimentOutcome.BLOCKED_BY_GATEWAY,
-        ExperimentOutcome.EXECUTED_AND_CONTAINED,
-        ExperimentOutcome.ATTACK_SUCCEEDED,
-        ExperimentOutcome.EXECUTION_ERROR, # Infra failure
-        ExperimentOutcome.INVALID_ARTIFACT
+    runs = [
+        ("B", ExperimentOutcome.BLOCKED_BY_GATEWAY),
+        ("C", ExperimentOutcome.EXECUTED_AND_CONTAINED),
+        ("A", ExperimentOutcome.ATTACK_SUCCEEDED),
+        ("A", ExperimentOutcome.EXECUTION_ERROR), # Infra failure
+        ("A", ExperimentOutcome.INVALID_ARTIFACT)
     ]
     
-    scorecard = calc.calculate_scorecard(outcomes)
+    scorecard = calc.calculate_scorecard(runs)
     
     assert scorecard["total_runs"] == 5
     assert scorecard["invalid_artifacts"] == 1
     assert scorecard["infrastructure_failures"] == 1
     assert scorecard["valid_population"] == 3
     
-    # Gateway blocks / VP = 1 / 3 = 33.33%
-    assert scorecard["gateway_block_rate"] == 33.33
+    # Gateway blocks / Gateway Active (Config B) = 1 / 1 = 100%
+    assert scorecard["gateway_block_rate"] == 100.0
     
-    # Sandbox contained / Sandbox Reached (excluding infra failure) = 1 / 2 = 50%
-    assert scorecard["sandbox_containment_rate"] == 50.0
+    # Sandbox contained / Sandbox Reached (Config C) = 1 / 1 = 100%
+    assert scorecard["sandbox_containment_rate"] == 100.0
     
     # Successful / VP = 1 / 3 = 33.33%
     assert scorecard["attack_success_rate"] == 33.33
