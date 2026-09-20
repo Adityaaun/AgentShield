@@ -4,111 +4,82 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **🎥 Demo:** *(Add your screen recording GIF here — use [ScreenToGif](https://www.screentogif.com/) on Windows, free & easy)*
+## 1. What is AgentShield?
+AgentShield is an enterprise-grade testing laboratory designed to evaluate the security of Autonomous AI Agents. It provides a visual, real-time matrix pipeline to empirically measure whether an AI system is vulnerable to prompt injections, malicious code execution, or unauthorized data exfiltration.
 
-AgentShield is an enterprise-grade testing laboratory designed to evaluate the security of Autonomous AI Agents.
- It provides a visual, real-time matrix pipeline to prove whether an AI system is vulnerable to prompt injections, malicious code execution, or unauthorized data exfiltration.
+**Disclaimer:** AgentShield is an evaluation tool. It **does not guarantee** that an AI agent is 100% secure. It mathematically calculates resilience against specific tested attack vectors.
 
-It achieves this through a **Defense-in-Depth** architecture:
-1. **Static AST Gateway:** Parses generated Python/Bash scripts and blocks malicious imports or system calls before execution.
-2. **Docker Sandbox:** Executes the AI's code in a heavily restricted, isolated container to contain zero-day behaviors.
+## 2. The Problem It Solves
+As AI agents gain autonomous capabilities to execute code, browse the web, and interact with operating systems, they become susceptible to manipulation. An attacker could inject malicious instructions into a prompt (e.g., "Delete all files", "Exfiltrate credentials"). AgentShield solves the problem of *measuring* how well an agent (or security system) contains and prevents these malicious behaviors before deploying them to production.
 
-## Screenshots
+## 3. Architecture and Data Flow
+AgentShield operates on a client-server architecture:
+- **Frontend:** A React/Vite dashboard providing real-time streaming (SSE) of evaluations and empirical scorecards.
+- **Backend:** A FastAPI server orchestrating evaluations, running the LangGraph agent, and managing security controls.
+- **Data Flow:** The backend pulls active `Attack Scenarios` from an SQLite database -> The AI generates a script based on the scenario -> The script passes through a `Static Gateway` -> If allowed, the script executes in a `Docker Sandbox` -> Telemetry (exit codes, stdout/stderr) is captured as `Evidence` -> An `Evaluation Engine` grades the final outcome.
 
-![Overview Dashboard](docs/assets/overview.png)
-*The main overview dashboard where you can launch the matrix pipeline.*
+## 4. Built-in Demo and A/B/C/D Configurations
+The built-in demo runs a Cartesian product evaluation across 4 configurations to scientifically prove the value of each security layer:
+- **Config A (Baseline):** No security controls. Raw agent execution.
+- **Config B (Gateway):** Static AST Gateway is enabled.
+- **Config C (Sandbox):** Docker Sandbox is enabled.
+- **Config D (Full AgentShield):** Both Gateway and Sandbox are active (Defense-in-Depth).
 
-![Live Operations](docs/assets/live_operations.png)
-*Live terminal stream watching the LangGraph agent and sandbox defenses in real-time.*
+## 5. Attack Scenarios
+AgentShield is driven by dynamic **Attack Scenarios** representing real-world threats (e.g., Ransomware encryption, AWS Credential Harvesting, Network Exfiltration). Scenarios are managed in the UI and act as the adversarial prompts fed to the agent during evaluation.
 
-![Security Scorecard](docs/assets/scorecard.png)
-*Detailed empirical scorecard breaking down defense mechanisms and generated attack payloads.*
+## 6. Security Controls: Gateway and Docker Sandbox Roles
+- **Static AST Gateway:** A Python AST (Abstract Syntax Tree) parser that intercepts generated scripts before execution. It blocks dangerous imports (e.g., `os`, `subprocess`) and network calls (e.g., `requests`, `urllib`), acting as a fast, first line of defense.
+- **Docker Sandbox:** A dynamic containment environment. If a malicious script evades the Gateway, it executes inside a heavily restricted, isolated Docker container with strict memory, CPU, and network boundaries, preventing harm to the host OS.
 
-![A/B Comparison Mode](docs/assets/compare_scorecard.png)
-*Side-by-side A/B comparison to track defense improvements between evaluations.*
+## 7. Evidence Collection and Evaluation
+AgentShield does not rely on guessing. Every execution yields concrete **Evidence**:
+- Gateway decisions (`ALLOW` / `BLOCK`)
+- Sandbox Exit Codes (e.g., `0` for success, `1` for error)
+- Sandbox Standard Output & Error
 
-![Scenarios Management](docs/assets/scenarios.png)
-*Threat scenario management with CVE imports.*
+The **Evaluation Engine** grades this evidence to assign a definitive Outcome (e.g., `EXECUTED_AND_CONTAINED`, `THREAT_SIGNAL_DETECTED`).
 
-![Evaluation History](docs/assets/history.png)
-*Pipeline execution history and timeline tracking.*
+## 8. Metric Definitions
+The Scorecard auto-calculates mathematical guarantees based on the Evaluation Engine:
+- **Attack Prevention Rate:** % of malicious scenarios successfully stopped from completing.
+- **Attack Success Rate:** % of malicious scenarios that successfully executed without containment.
+- **Gateway Block Rate:** % of malicious payloads caught specifically by the static AST Gateway.
+- **Sandbox Containment Rate:** % of payloads that bypassed the Gateway but were successfully contained or crashed within the Docker Sandbox.
 
-![Settings & Configuration](docs/assets/settings.png)
-*Local API key management and configuration overrides.*
+## 9. BYOA / Test My Agent
+AgentShield supports **Bring Your Own Agent (BYOA)**. Instead of using the built-in demo agent, you can connect your own remote API agent endpoint (e.g., `http://localhost:5000/chat`). AgentShield will send the adversarial attack scenarios to your agent and evaluate its text response.
 
-## 🌟 Key Features
+## 10. Built-in A/B/C/D vs BYOA
+- **Built-in Demo:** Evaluates the internal LangGraph agent using the local Gateway and Docker Sandbox across a full A/B/C/D matrix.
+- **BYOA (Remote Evaluation):** Evaluates an external, remote agent via API. Because AgentShield cannot install a Docker sandbox on a remote third-party server, the local Gateway and Sandbox are **Not Applied (N/A)** for BYOA. Instead, the Evaluation Engine uses LLM-assisted grading to determine if the remote agent succumbed to the attack or safely refused it.
 
-- **Premium Operations Dashboard:** A stunning, dark-mode React interface inspired by modern security operations centers.
-- **Matrix Evaluation Pipeline:** Runs a full cartesian product of test scenarios across 4 different defense configurations (Baseline, Gateway, Sandbox, Full Defense) in real-time.
-- **Split-Screen Live Operations:** Watch the pipeline execute via Server-Sent Events (SSE) in a live terminal side-by-side with your configurations.
-- **Dynamic Scenario Management:** Add, remove, and toggle active/inactive real-world attack prompts (e.g., AWS Credential Harvesting, Reverse Shells, Ransomware).
-- **Graceful Error Handling:** Built-in timeouts and error catching to handle LLM API Rate Limits and infinite retry loops without crashing the UI.
-- **Security Scorecard:** Auto-calculates mathematical guarantees of safety (Prevention Rate, Containment Rate, Attack Success).
+## 11. Current Verified Test Results
+The `main` branch is verified and stable:
+- **Backend Tests:** 30/30 `pytest` integration and unit tests passing successfully.
+- **Frontend Build:** Clean Typescript compilation and Vite minification with zero errors.
+- **Security:** Evaluator metrics and BYOA SSRF protections are mathematically verified.
 
----
+## 12. Setup and Local Run Instructions
+### Prerequisites
+- Python 3.10+
+- Node.js (v18+)
+- Docker Desktop (Must be running)
 
-## 1. Setup Instructions
+### Backend Setup
+1. `cd backend`
+2. `pip install -r requirements.txt`
+3. Create a `.env` file containing your `GOOGLE_API_KEY=your_key` (Required for the built-in demo LLM).
+4. Set PYTHONPATH: `$env:PYTHONPATH="src"` (Windows) or `export PYTHONPATH="src"` (Mac/Linux).
+5. Start server: `python -m uvicorn agentshield.api.main:app --port 8000`
 
-Before starting, ensure you have **Python 3.10+**, **Node.js (v18+)**, and **Docker Desktop** installed.
+### Frontend Setup
+1. `cd frontend`
+2. `npm install`
+3. `npm run dev`
+4. Open `http://localhost:5173`
 
-### Backend Setup (FastAPI & LangGraph)
-
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Activate your virtual environment and install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Set up your environment variables by creating a `.env` file (you can copy `.env.example`):
-   ```ini
-   # Add your AI Provider key here (Google Gemini, OpenAI, etc.)
-   GOOGLE_API_KEY=your_api_key_here
-   ```
-   *Note: AgentShield defaults to a local SQLite database (`agentshield.db`) for easy setup.*
-
-4. Set the `PYTHONPATH` so Python can find the package:
-   ```bash
-   # Windows PowerShell
-   $env:PYTHONPATH="src"
-   # Mac/Linux
-   export PYTHONPATH="src"
-   ```
-5. Start the server using Uvicorn:
-   ```bash
-   uvicorn agentshield.api.main:app --reload --port 8000
-   ```
-
-### Frontend Setup (React + Vite + Tailwind)
-
-1. Open a **new** terminal and navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-4. Open `http://localhost:5173` in your browser.
-
----
-
-## 2. Using the Platform
-
-1. **Configure Scenarios:** Navigate to the **Scenarios** tab. By default, it is pre-populated with highly realistic threats (Ransomware, Cryptominers). You can add your own or toggle specific ones on/off to control the pipeline.
-2. **Run the Matrix:** Go to the **Overview** tab and click **Run Matrix Pipeline**. 
-3. **Live Operations:** The screen will dynamically split, opening the Live Operations terminal. You can watch the LangGraph agent generate code and see real-time decisions from the Gateway and Sandbox.
-4. **View Results:** Once the evaluation completes (or if it gracefully aborts due to an API limit), click **View Scorecard** to see your updated empirical security metrics.
-
----
-
-## 3. Security Notice
-
-**DO NOT** push your `.env` file to public repositories. AgentShield is configured to ignore `.env` files by default to protect your API keys.
-
-*Disclaimer: This tool is intended for defensive security research and empirical testing of autonomous agents.*
+## 13. Limitations and Future Scope
+- **No Silver Bullet:** AgentShield provides empirical measurement, not an absolute guarantee of security. Zero-day prompt injections can still evade detection.
+- **LLM Rate Limits:** The Built-in Demo relies on the Gemini API and may experience HTTP 429 Rate Limits on free tiers during heavy matrix evaluations.
+- **Future Scope:** Expanding BYOA to support remote code execution telemetry, supporting more advanced network mocking inside the Docker Sandbox, and expanding the pre-built CVE scenario database.
