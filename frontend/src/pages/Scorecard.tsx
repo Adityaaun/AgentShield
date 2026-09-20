@@ -207,7 +207,7 @@ export default function Scorecard() {
         <>
           {/* Metric Cards — side by side if comparing */}
           <div className={`grid gap-6 ${compareMode && compareData ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <MetricSection data={data} label={`Eval #${evalId}`} />
+            <MetricSection data={data} label={`Eval #${evalId}`} isByoa={experiments.some(e => e.config_id === 'REMOTE')} />
             {compareMode && compareData && (
               <MetricSection data={compareData} label={`Eval #${compareId}`} compareWith={data} />
             )}
@@ -265,7 +265,7 @@ export default function Scorecard() {
   );
 }
 
-function MetricSection({ data, label, compareWith }: { data: ScorecardData; label: string; compareWith?: ScorecardData }) {
+function MetricSection({ data, label, compareWith, isByoa }: { data: ScorecardData; label: string; compareWith?: ScorecardData; isByoa?: boolean }) {
   return (
     <div>
       <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 text-center">{label}</p>
@@ -275,9 +275,15 @@ function MetricSection({ data, label, compareWith }: { data: ScorecardData; labe
         <RadialMetricCard title="Attack Success" value={data.attack_success_rate} strokeColor="#ef4444"
           delta={compareWith ? data.attack_success_rate - compareWith.attack_success_rate : undefined} higherIsBetter={false} />
         <RadialMetricCard title="Gateway Blocked" value={data.gateway_block_rate} strokeColor="#00f0ff"
-          delta={compareWith ? data.gateway_block_rate - compareWith.gateway_block_rate : undefined} higherIsBetter />
+          delta={compareWith ? data.gateway_block_rate - compareWith.gateway_block_rate : undefined} higherIsBetter 
+          valueOverride={isByoa ? "N/A" : undefined}
+          explainText={isByoa ? "Not applied to remote-agent evaluation." : undefined}
+        />
         <RadialMetricCard title="Sandbox Contained" value={data.sandbox_containment_rate} strokeColor="#3b82f6"
-          delta={compareWith ? data.sandbox_containment_rate - compareWith.sandbox_containment_rate : undefined} higherIsBetter />
+          delta={compareWith ? data.sandbox_containment_rate - compareWith.sandbox_containment_rate : undefined} higherIsBetter 
+          valueOverride={isByoa ? "N/A" : undefined}
+          explainText={isByoa ? "Not applied to remote-agent evaluation." : undefined}
+        />
       </div>
     </div>
   );
@@ -398,30 +404,36 @@ function StatBlock({ label, value, color = 'text-white' }: { label: string; valu
   );
 }
 
-function RadialMetricCard({ title, value, strokeColor, delta, higherIsBetter }: {
+function RadialMetricCard({ title, value, strokeColor, delta, higherIsBetter, valueOverride, explainText }: {
   title: string; value: number; strokeColor: string; delta?: number; higherIsBetter?: boolean;
+  valueOverride?: string;
+  explainText?: string;
 }) {
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (value / 100) * circumference;
+  // If valueOverride is provided, we can show a full circle or empty circle
+  const strokeDashoffset = valueOverride ? circumference : circumference - (value / 100) * circumference;
 
   const deltaGood = delta !== undefined && ((higherIsBetter && delta > 0) || (!higherIsBetter && delta < 0));
   const deltaBad = delta !== undefined && ((higherIsBetter && delta < 0) || (!higherIsBetter && delta > 0));
 
   return (
-    <div className="relative bg-obsidian-900/80 backdrop-blur-xl border border-obsidian-700/50 rounded-2xl p-4 flex flex-col items-center shadow-panel group hover:-translate-y-1 transition-transform duration-300">
-      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">{title}</div>
+    <div className="relative bg-obsidian-900/80 backdrop-blur-xl border border-obsidian-700/50 rounded-2xl p-4 flex flex-col items-center shadow-panel group hover:-translate-y-1 transition-transform duration-300 group-hover:z-10" title={explainText}>
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center flex flex-col items-center gap-1">
+        {title}
+        {explainText && <span className="text-[9px] text-slate-500 font-normal lowercase tracking-normal">{explainText}</span>}
+      </div>
 
       <div className="relative flex items-center justify-center w-32 h-32">
         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
           <circle cx="70" cy="70" r={radius} fill="transparent" stroke="#1b2a4e" strokeWidth="8" />
           <circle cx="70" cy="70" r={radius} fill="transparent" stroke={strokeColor} strokeWidth="8"
             strokeLinecap="round"
-            style={{ strokeDasharray: circumference, strokeDashoffset, transition: 'stroke-dashoffset 1s ease-in-out' }} />
+            style={{ strokeDasharray: circumference, strokeDashoffset, transition: 'stroke-dashoffset 1s ease-in-out', opacity: valueOverride ? 0.3 : 1 }} />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold font-mono text-white">{value}%</span>
-          {delta !== undefined && (
+          <span className="text-2xl font-bold font-mono text-white">{valueOverride ? valueOverride : `${value}%`}</span>
+          {delta !== undefined && !valueOverride && (
             <span className={`text-xs font-bold mt-1 ${deltaGood ? 'text-emerald-400' : deltaBad ? 'text-red-400' : 'text-slate-500'}`}>
               {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}%
             </span>
