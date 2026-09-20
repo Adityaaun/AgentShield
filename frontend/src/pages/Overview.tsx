@@ -6,6 +6,9 @@ import LiveEvaluation from './LiveEvaluation';
 export default function Overview() {
   const [loading, setLoading] = useState(false);
   const [activeEvalId, setActiveEvalId] = useState<string | null>(null);
+  const [showByoaModal, setShowByoaModal] = useState(false);
+  const [agentName, setAgentName] = useState('Mock Agent');
+  const [agentUrl, setAgentUrl] = useState('http://localhost:5000/chat');
 
   useEffect(() => {
     const checkRunning = async () => {
@@ -32,6 +35,22 @@ export default function Overview() {
     } catch (err) {
       console.error(err);
       alert('Failed to start evaluation matrix');
+    }
+    setLoading(false);
+  };
+
+  const startByoa = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post('/api/evaluations/custom', {
+        agent_name: agentName,
+        agent_url: agentUrl
+      });
+      setShowByoaModal(false);
+      setActiveEvalId(response.data.id);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to start BYOA evaluation');
     }
     setLoading(false);
   };
@@ -93,24 +112,37 @@ export default function Overview() {
           )}
 
           {!activeEvalId && (
-            <button 
-              onClick={startMatrix}
-              disabled={loading}
-              className="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-200 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl hover:shadow-neon-cyan focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden mt-4"
-            >
-              <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 ease-out -skew-x-12 -ml-4 w-12"></div>
-              {loading ? (
-                <span className="flex items-center gap-3 animate-pulse">
-                  <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-                  Initializing Matrix...
-                </span>
-              ) : (
+            <div className="flex flex-col sm:flex-row gap-4 mt-8 w-full justify-center">
+              <button 
+                onClick={startMatrix}
+                disabled={loading}
+                className="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-200 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl hover:shadow-neon-cyan focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden w-full sm:w-auto"
+              >
+                <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 ease-out -skew-x-12 -ml-4 w-12"></div>
+                {loading ? (
+                  <span className="flex items-center gap-3 animate-pulse">
+                    <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                    Initializing...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-3">
+                    <Play className="w-5 h-5 fill-white" />
+                    RUN BUILT-IN DEMO
+                  </span>
+                )}
+              </button>
+
+              <button 
+                onClick={() => setShowByoaModal(true)}
+                disabled={loading}
+                className="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-200 bg-obsidian-800 border border-obsidian-600 rounded-xl hover:bg-obsidian-700 hover:border-purple-500 hover:shadow-neon-purple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+              >
                 <span className="flex items-center gap-3">
-                  <Play className="w-5 h-5 fill-white" />
-                  RUN MATRIX PIPELINE
+                  <TerminalSquare className="w-5 h-5" />
+                  TEST MY AGENT
                 </span>
-              )}
-            </button>
+              </button>
+            </div>
           )}
         </div>
 
@@ -172,6 +204,58 @@ export default function Overview() {
           border-radius: 10px;
         }
       `}} />
+      {/* BYOA Modal */}
+      {showByoaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-obsidian-900 border border-obsidian-700 rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <TerminalSquare className="w-5 h-5 text-purple-400" />
+              Test Custom Agent
+            </h2>
+            <p className="text-slate-400 text-sm mb-6">
+              Connect your external agent via API. We will send adversarial prompts to this endpoint.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Agent Name</label>
+                <input 
+                  type="text" 
+                  value={agentName}
+                  onChange={e => setAgentName(e.target.value)}
+                  className="w-full bg-obsidian-950 border border-obsidian-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Agent Endpoint URL (POST)</label>
+                <input 
+                  type="text" 
+                  value={agentUrl}
+                  onChange={e => setAgentUrl(e.target.value)}
+                  className="w-full bg-obsidian-950 border border-obsidian-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
+                  placeholder="http://localhost:5000/chat"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-8 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowByoaModal(false)}
+                className="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-obsidian-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={startByoa}
+                disabled={loading}
+                className="px-6 py-2 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? 'Starting...' : 'Start Evaluation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

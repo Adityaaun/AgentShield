@@ -1,12 +1,18 @@
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from agentshield.db.session import get_db
 from agentshield.db.models import Evaluation, AttackScenario, ScenarioRun, Attempt, ExecutionRun, Evidence, GatewayDecision, SandboxExecution
 from agentshield.runner import run_evaluation_matrix
+from agentshield.byoa_runner import run_byoa_evaluation
 import json
+
+class CustomEvalRequest(BaseModel):
+    agent_name: str
+    agent_url: HttpUrl
 
 router = APIRouter()
 
@@ -28,6 +34,22 @@ async def create_evaluation(background_tasks: BackgroundTasks, db: AsyncSession 
     
     # Start the matrix runner in the background
     background_tasks.add_task(run_evaluation_matrix, evaluation.id, queue)
+    
+    return {"id": evaluation.id, "status": "RUNNING"}
+
+@router.post("/evaluations/custom")
+async def create_custom_evaluation(req: CustomEvalRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    """Creates a BYOA evaluation and starts the custom runner."""
+    evaluation = Evaluation(name=f"BYOA: {req.agent_name}", status="RUNNING")
+    db.add(evaluation)
+    await db.commit()
+    await db.refresh(evaluation)
+    
+    queue = asyncio.Queue()
+    sse_queues[evaluation.id] = queue
+    
+    # Start the BYOA runner in the background
+    background_tasks.add_task(run_byoa_evaluation, evaluation.id, str(req.agent_url), queue)
     
     return {"id": evaluation.id, "status": "RUNNING"}
 
